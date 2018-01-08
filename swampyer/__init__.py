@@ -7,6 +7,7 @@ from six.moves import queue
 import websocket
 from .messages import *
 from .utils import logger
+from .exceptions import *
 
 STATE_DISCONNECTED = 0
 STATE_CONNECTING = 1
@@ -21,6 +22,10 @@ class WAMPClient(threading.Thread):
     authid = None
     authmethods = None
     timeout = None
+
+
+    session_id = None
+    peer = None
 
     _subscriptions = None
     _registered_calls = None
@@ -101,7 +106,8 @@ class WAMPClient(threading.Thread):
             details = {}
         if self.authid:
             details.setdefault('authid', self.authid)
-        details.setdefault('agent', 'swampyer-1.0')
+        details.setdefault('agent', u'swampyer-1.0')
+        details.setdefault('authmethods', [u'anonymous'])
         details.setdefault('roles', {
                                         'subscriber': {},
                                         'publisher': {},
@@ -117,8 +123,13 @@ class WAMPClient(threading.Thread):
         try:
             message = self._welcome_queue.get(block=True,timeout=self.timeout)
         except Exception as ex:
-            raise Exception("Timed out waiting for WELCOME response")
+            raise ExWelcomeTimeout("Timed out waiting for WELCOME response")
+        if message == WAMP_ABORT:
+            raise ExAbort("Received abort when trying to connect: {}".format(
+                    message.details.get('message',
+                      message.reason)))
         self.session_id = message.session_id
+        self.peer = message
 
     def call(self, uri, *args, **kwargs ):
         """ Sends a RPC request to the WAMP server
@@ -138,7 +149,11 @@ class WAMPClient(threading.Thread):
             return message.args[0]
 
         if message == WAMP_ERROR:
-            raise Exception(message.args[0])
+            if message.args:
+                err = message.args[0]
+            else:
+                err = message.error
+            raise ExInvocationError(err)
 
         return message
 
@@ -147,6 +162,7 @@ class WAMPClient(threading.Thread):
             for a response here. Just fire out a message
         """
         message = message.as_str()
+        logger.debug("SND>: {}".format(message))
         self.ws.send(message)
 
     def send_and_await_response(self,request):
@@ -209,23 +225,33 @@ class WAMPClient(threading.Thread):
         req_id = message.request_id
         reg_id = message.registration_id
         if reg_id in self._registered_calls:
-            result = self._registered_calls[reg_id](
-                message,
-                *(message.args),
-                **(message.kwargs)
-            )
-            self.send_message(YIELD(
-                request_id = req_id,
-                options={},
-                args=[result]
-            ))
+            try:
+                result = self._registered_calls[reg_id](
+                    message,
+                    *(message.args),
+                    **(message.kwargs)
+                )
+                self.send_message(YIELD(
+                    request_id = req_id,
+                    options={},
+                    args=[result]
+                ))
+            except Exception as ex:
+                error_uri = self.uri_base + '.error.invoke.failure'
+                self.send_message(ERROR(
+                    request_code = WAMP_INVOCATION,
+                    request_id = req_id,
+                    details = {},
+                    error = error_uri,
+                    args = [u'Call failed: {}'.format(ex)],
+                ))
         else:
             error_uri = self.uri_base + '.error.unknown.uri'
             self.send_message(ERROR(
-                WAMP_INVOCATION,
-                req_id,
-                {},
-                error_uri
+                request_code = WAMP_INVOCATION,
+                request_id = req_id,
+                details = {},
+                error =error_uri
             ))
 
     def handle_event(self, event):
@@ -321,8 +347,9 @@ class WAMPClient(threading.Thread):
             if not data: continue
 
             try:
-                logger.debug("Received Data:{}".format(data))
+                logger.debug("<RCV: {}".format(data))
                 message = WampMessage.loads(data)
+                logger.debug("<RCV: {}".format(message.dump()))
                 try:
                     code_name = message.code_name.lower()
                     handler_name = "handle_"+code_name
