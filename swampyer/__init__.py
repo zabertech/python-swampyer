@@ -258,8 +258,9 @@ class WAMPClient(threading.Thread):
         """ Send the event to the subclass or simply reject
         """
         subscription_id = event.subscription_id
-        if subscription_id in self.subscriptions:
-            self.subscriptions[subscription_id][SUBSCRIPTION_CALLBACK](event)
+        if subscription_id in self._subscriptions:
+            # FIXME: [1] should be a constant
+            self._subscriptions[subscription_id][1](event)
 
     def handle_unknown(self, message):
         """ We don't know what to do with this. So we'll send it
@@ -280,7 +281,7 @@ class WAMPClient(threading.Thread):
         if result == WAMP_SUBSCRIBED:
             if not callback:
                 callback = lambda a: None
-            self.subscriptions[result.subscription_id] = [topic,callback]
+            self._subscriptions[result.subscription_id] = [topic,callback]
 
     def publish(self,topic,options=None,args=None,kwargs=None):
         """ Publishes a messages to the server
@@ -290,8 +291,8 @@ class WAMPClient(threading.Thread):
         result = self.send_and_await_response(PUBLISH(
                     options=options or {},
                     topic=topic,
-                    args=args,
-                    kwargs=kwargs
+                    args=args or [],
+                    kwargs=kwargs or {}
                   ))
         return result
 
