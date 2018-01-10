@@ -123,7 +123,7 @@ class WAMPClient(threading.Thread):
         if self.authid:
             details.setdefault('authid', self.authid)
         details.setdefault('agent', u'swampyer-1.0')
-        details.setdefault('authmethods', [u'anonymous'])
+        details.setdefault('authmethods', self.authmethods or [u'anonymous'])
         details.setdefault('roles', {
                                         'subscriber': {},
                                         'publisher': {},
@@ -381,7 +381,7 @@ class WAMPClient(threading.Thread):
         self.close()
 
 
-class WAMPClientTicket(threading.Thread):
+class WAMPClientTicket(WAMPClient):
     username = None
     password = None
 
@@ -396,7 +396,7 @@ class WAMPClientTicket(threading.Thread):
         if username is not None:
             kwargs.setdefault('authid',username)
 
-        super(WAMPClient,self).__init__(**kwargs)
+        super(WAMPClientTicket,self).__init__(**kwargs)
         self.daemon = True
 
         self.configure(
@@ -404,7 +404,7 @@ class WAMPClientTicket(threading.Thread):
         )
 
     def configure(self, **kwargs):
-        super(self,WAMPClientTicket).configure(kwargs)
+        super(WAMPClientTicket,self).configure(**kwargs)
         for k in ('username','password'):
             if k in kwargs:
                 setattr(self,k,kwargs[k])
