@@ -1,3 +1,4 @@
+import re
 import json
 import time
 import threading
@@ -41,16 +42,31 @@ class WAMPClient(threading.Thread):
         """
         return int(round(time.time() * 1000))
 
-    def connect(self):
+    def connect(self,**options):
         """ This just creates the websocket connection
         """
         self._state = STATE_CONNECTING
         logger.debug("About to connect to {}".format(self.url))
+
+        m = re.search('(ws+)://([\w\.]+)(:?:(\d+))?',self.url)
+
+        options['subprotocols'] = ['wamp.2.json']
+        options.setdefault('timeout',self._loop_timeout)
+
+        # Handle the weird issue in websocket that the origin
+        # port will be always http://host:port even though connection is
+        # wss. This causes some origin issues with demo.crossbar.io demo
+        # so we ensure we use http or https appropriately depending on the
+        # ws or wss protocol
+        if m and m.group(1).lower() == 'wss':
+            origin_port = ':'+m.group(3) if m.group(3) else ''
+            options['origin'] = u'https://{}{}'.format(m.group(2),origin_port)
+
         self.ws = websocket.create_connection(
                         self.url,
-                        subprotocols=['wamp.2.json'],
-                        timeout=self._loop_timeout,
+                        **options
                     )
+
         self._state = STATE_CONNECTED
         logger.debug("Connected to {}".format(self.url))
         self._subscriptions    = {}
