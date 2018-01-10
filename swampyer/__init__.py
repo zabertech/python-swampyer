@@ -101,7 +101,7 @@ class WAMPClient(threading.Thread):
 
     def configure(self, **kwargs):
         for k in ('url','uri_base','realm',
-                  'agent','timeout','authmethods'):
+                  'agent','timeout','authmethods', 'authid'):
             if k in kwargs:
                 setattr(self,k,kwargs[k])
 
@@ -397,6 +397,8 @@ class WAMPClientTicket(WAMPClient):
 
         self.configure(
             password = password,
+            username = username,
+            **kwargs
         )
 
     def configure(self, **kwargs):
