@@ -392,10 +392,6 @@ class WAMPClientTicket(WAMPClient):
                 **kwargs
                 ):
 
-        # Just alias username to make things "easier"
-        if username is not None:
-            kwargs.setdefault('authid',username)
-
         super(WAMPClientTicket,self).__init__(**kwargs)
         self.daemon = True
 
@@ -404,8 +400,12 @@ class WAMPClientTicket(WAMPClient):
         )
 
     def configure(self, **kwargs):
+        # Just alias username to make things "easier"
+        if 'username' in kwargs:
+            kwargs.setdefault('authid',kwargs['username'])
+
         super(WAMPClientTicket,self).configure(**kwargs)
-        for k in ('username','password'):
+        for k in ('password',):
             if k in kwargs:
                 setattr(self,k,kwargs[k])
 
