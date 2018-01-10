@@ -3,11 +3,12 @@
 from setuptools import setup, find_packages
 
 setup(name='swampyer',
-      version='1.00',
-      description='Simple WAMP ',
-      url='',
+      version='1.0',
+      description='Simple WAMP library with minimal external dependencies',
+      url = 'https://github.com/zabertech/python-swampyer',
+      download_url = 'https://github.com/zabertech/python-swampyer/archive/1.0.tar.gz',
       author='Aki Mimoto',
-      author_email='aki+izaber@zaber.com',
+      author_email='aki+swampyer@zaber.com',
       license='MIT',
       packages=['swampyer'],
       scripts=[],
