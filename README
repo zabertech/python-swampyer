@@ -4,14 +4,15 @@
 
 Overview
 ========
+Intended as yet another way of interacting with a Web Application Messaging Protocol (WAMP) service, this is intended to be a very lightweight library as an alternative to autobahn.js.
 
 Documentation
 =============
-API documentation, usage and examples can be found in the "docs" directory.
+Examples can be found in the "examples" directory.
 
 Installation
 ============
 Install by using:
 
-sudo apt-get install libffi apt-get install libssl-dev
-pip install --process-dependency-links git+https://github.com/zabertech/python-swampyer.git
+pip install swampyer
+
