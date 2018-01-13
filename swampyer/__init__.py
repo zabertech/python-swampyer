@@ -24,18 +24,43 @@ class WAMPClient(threading.Thread):
     authmethods = None
     timeout = None
 
-
     session_id = None
     peer = None
 
     _subscriptions = None
     _registered_calls = None
+    _request_loop_notify_restart = None
     _requests_pending = None
-    _request_stop = False
-    _running = True
+    _request_disconnect = None
+    _request_shutdown = False
     _loop_timeout = 0.1
     _state = STATE_DISCONNECTED
 
+    def __init__(
+                self,
+                url='ws://localhost:8080',
+                realm='realm1',
+                agent='python-swampyer-1.0',
+                uri_base='',
+                authmethods=None,
+                authid=None,
+                timeout=10,
+                ):
+
+        self._state = STATE_DISCONNECTED
+
+        super(WAMPClient,self).__init__()
+        self.daemon = True
+        self._request_loop_notify_restart = threading.Condition()
+        self.configure(
+            url = url,
+            uri_base = uri_base,
+            realm = realm,
+            agent = agent,
+            timeout = timeout,
+            authid = authid,
+            authmethods = authmethods,
+        )
 
     def generate_request_id(self):
         """ We cheat, we just use the millisecond timestamp for the request
@@ -67,37 +92,16 @@ class WAMPClient(threading.Thread):
                         **options
                     )
 
-        self._state = STATE_CONNECTED
         logger.debug("Connected to {}".format(self.url))
         self._subscriptions    = {}
         self._registered_calls = {}
-        self._requests_pending = {};
+        self._requests_pending = {}
+        self._state = STATE_CONNECTED
 
-    def __init__(
-                self,
-                url='ws://localhost:8080',
-                realm='realm1',
-                agent='python-swampyer-1.0',
-                uri_base='',
-                authmethods=None,
-                authid=None,
-                timeout=10,
-                ):
-
-        self._state = STATE_DISCONNECTED
-
-        super(WAMPClient,self).__init__()
-        self.daemon = True
-
-        self.configure(
-            url = url,
-            uri_base = uri_base,
-            realm = realm,
-            agent = agent,
-            timeout = timeout,
-            authid = authid,
-            authmethods = authmethods,
-        )
+        # notify the threading.Conditional that restart can happen
+        self._request_loop_notify_restart.acquire()
+        self._request_loop_notify_restart.notify()
+        self._request_loop_notify_restart.release()
 
     def configure(self, **kwargs):
         for k in ('url','uri_base','realm',
@@ -210,6 +214,11 @@ class WAMPClient(threading.Thread):
         """
         self.dispatch_to_awaiting(result)
 
+    def handle_goodbye(self, goodbye):
+        """ Dispatch the result back to the appropriate awaiter
+        """
+        pass
+
     def handle_result(self, result):
         """ Dispatch the result back to the appropriate awaiter
         """
@@ -235,7 +244,7 @@ class WAMPClient(threading.Thread):
         """
         self._welcome_queue.put(reason)
         self.close()
-        self.stop()
+        self.disconnect()
 
     def handle_invocation(self, message):
         req_id = message.request_id
@@ -312,22 +321,50 @@ class WAMPClient(threading.Thread):
                   ))
         return result
 
-    def close(self):
-        """ Close the WAMP connection """
-        if self._running:
-            self.send_message(GOODBYE(
-                  details={},
-                  reason="wamp.error.system_shutdown"
-                ))
-        self.ws.close()
-        self._running = False
-
-    def stop(self):
-        """ Request the system to stop the main loop and shutdown the system
+    def disconnect(self):
+        """ Disconnect from the websocket and pause the process
+            till we reconnect
         """
-        self._request_stop = True
+        logger.debug("Disconnecting")
+
+        # Close off the websocket
+        if self.ws:
+            try:
+                if self._state == STATE_CONNECTED:
+                    self.send_message(GOODBYE(
+                          details={},
+                          reason="wamp.error.system_shutdown"
+                        ))
+                logger.debug("Closing Websocket")
+                self.ws.close()
+            except Execption:
+                pass # FIXME: Maybe do better handling here
+            self.ws = None
+
+        # Cleanup the state variables. By settings this
+        # we're going to be telling the main loop to stop
+        # trying to read from a websocket and await a notice
+        # of restart via a threading.Condition object
+        self._state = STATE_DISCONNECTED
+
+        # Send a message to all queues that we have disconnected
+        # Without this, any requests that are awaiting a response
+        # will block until timeout needlessly
+        for request_id, request_queue in self._requests_pending.items():
+            request_queue.put(GOODBYE(
+                          details={},
+                          reason="wamp.error.system_shutdown"
+                        ))
+        self._requests_pending = {}
+
+    def shutdown(self):
+        """ Request the system to shutdown the main loop and shutdown the system
+            This is a one-way trip! Reconnecting requires a new connection
+            to be made!
+        """
+        self._request_shutdown = True
         for i in range(100):
-            if not self._running:
+            if self._state == STATE_DISCONNECTED:
                 break
             time.sleep(0.1)
 
@@ -335,7 +372,8 @@ class WAMPClient(threading.Thread):
         """ Initialize websockets, say hello, and start listening for events
         """
         self.connect()
-        super(WAMPClient,self).start()
+        if not self.isAlive():
+            super(WAMPClient,self).start()
         self.hello()
         return self
 
@@ -352,15 +390,35 @@ class WAMPClient(threading.Thread):
     def run(self):
         """ Waits and receives messages from the server. This
             function somewhat needs to block so is executed in its
-            own thread until self._request_stop is called.
+            own thread until self._request_shutdown is called.
         """
-        while not self._request_stop:
+        while not self._request_shutdown:
+
+            # Find out if we have any data pending from the
+            # server
             try:
+
+                # If we've been asked to stop running the
+                # request loop. We'll just sit and wait
+                # till we get asked to run again
+                if self._state not in [STATE_CONNECTED]:
+                    self._request_loop_notify_restart.acquire()
+                    self._request_loop_notify_restart.wait(self._loop_timeout)
+                    self._request_loop_notify_restart.release()
+                    continue
+
+                # If we don't have a websocket defined.
+                # we don't go further either
+                elif not self.ws:
+                    self._state = STATE_DISCONNECTED
+                    continue
+
+                # Okay, we think we're okay so let's try and read some data
                 data = self.ws.recv()
             except websocket.WebSocketTimeoutException:
                 continue
             except websocket.WebSocketConnectionClosedException:
-                break
+                self.close()
             if not data: continue
 
             try:
@@ -377,9 +435,6 @@ class WAMPClient(threading.Thread):
             except Exception as ex:
                 # FIXME: Needs more granular exception handling
                 raise
-
-        self.close()
-
 
 class WAMPClientTicket(WAMPClient):
     username = None
