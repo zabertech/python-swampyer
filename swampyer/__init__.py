@@ -336,8 +336,12 @@ class WAMPClient(threading.Thread):
                           reason="wamp.error.system_shutdown"
                         ))
                 logger.debug("Closing Websocket")
-                self.ws.close()
-            except Execption:
+                try:
+                    self.ws.close()
+                except Exception as ex:
+                    logger.debug("Could not close websocket connection because: {}".format(ex))
+            except Exception as ex:
+                logger.debug("Could not send Goodbye message because {}".format(ex))
                 pass # FIXME: Maybe do better handling here
             self.ws = None
 
@@ -418,7 +422,7 @@ class WAMPClient(threading.Thread):
             except websocket.WebSocketTimeoutException:
                 continue
             except websocket.WebSocketConnectionClosedException:
-                self.close()
+                self.disconnect()
             if not data: continue
 
             try:
