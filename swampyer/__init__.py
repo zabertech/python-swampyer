@@ -103,6 +103,11 @@ class WAMPClient(threading.Thread):
         self._request_loop_notify_restart.notify()
         self._request_loop_notify_restart.release()
 
+    def is_connected(self):
+        """ returns a true value if the connection is currently active
+        """
+        return ( self._state == STATE_CONNECTED )
+
     def configure(self, **kwargs):
         for k in ('url','uri_base','realm',
                   'agent','timeout','authmethods', 'authid'):
