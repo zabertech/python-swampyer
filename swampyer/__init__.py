@@ -12,6 +12,8 @@ from .exceptions import *
 
 STATE_DISCONNECTED = 0
 STATE_CONNECTING = 1
+STATE_WEBSOCKET_CONNECTED = 3
+STATE_AUTHENTICATING = 4
 STATE_CONNECTED = 2
 
 class WAMPClient(threading.Thread):
@@ -96,7 +98,7 @@ class WAMPClient(threading.Thread):
         self._subscriptions    = {}
         self._registered_calls = {}
         self._requests_pending = {}
-        self._state = STATE_CONNECTED
+        self._state = STATE_WEBSOCKET_CONNECTED
 
         # notify the threading.Conditional that restart can happen
         self._request_loop_notify_restart.acquire()
@@ -139,6 +141,7 @@ class WAMPClient(threading.Thread):
                                         'caller': {},
                                         'callee': {},
                                     })
+        self._state = STATE_AUTHENTICATING
         self.send_message(HELLO(
                                 realm = self.realm,
                                 details = details
@@ -155,6 +158,7 @@ class WAMPClient(threading.Thread):
                       message.reason)))
         self.session_id = message.session_id
         self.peer = message
+        self._state = STATE_CONNECTED
 
     def call(self, uri, *args, **kwargs ):
         """ Sends a RPC request to the WAMP server
@@ -204,10 +208,22 @@ class WAMPClient(threading.Thread):
             raise Exception("Did not receive a response!")
 
     def dispatch_to_awaiting(self,result):
-        request_id = result.request_id
-        if request_id in self._requests_pending:
-            self._requests_pending[request_id].put(result)
-            del self._requests_pending[request_id]
+        """ Send dat ato the appropriate queues
+        """
+
+        # If we are awaiting to login, then we might also get
+        # an abort message. Handle that here....
+        if self._state == STATE_AUTHENTICATING:
+            self._welcome_queue.put(result)
+            return
+
+        try:
+            request_id = result.request_id
+            if request_id in self._requests_pending:
+                self._requests_pending[request_id].put(result)
+                del self._requests_pending[request_id]
+        except:
+            raise Exception("Response does not have a request id. Do not know who to send data to. Data: {} ".format(result.dump()))
 
     def handle_welcome(self, welcome):
         """ Hey cool, we were told we can access the server!
@@ -252,6 +268,9 @@ class WAMPClient(threading.Thread):
         self.disconnect()
 
     def handle_invocation(self, message):
+        """ Passes the invocation request to the appropriate
+            callback.
+        """
         req_id = message.request_id
         reg_id = message.registration_id
         if reg_id in self._registered_calls:
@@ -410,7 +429,7 @@ class WAMPClient(threading.Thread):
                 # If we've been asked to stop running the
                 # request loop. We'll just sit and wait
                 # till we get asked to run again
-                if self._state not in [STATE_CONNECTED]:
+                if self._state not in [STATE_AUTHENTICATING,STATE_WEBSOCKET_CONNECTED,STATE_CONNECTED]:
                     self._request_loop_notify_restart.acquire()
                     self._request_loop_notify_restart.wait(self._loop_timeout)
                     self._request_loop_notify_restart.release()
