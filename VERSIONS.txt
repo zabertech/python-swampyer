@@ -1,3 +1,10 @@
 1.7 - Thu Jan 18 11:44:12 PST 2018
 
-Add is_connected() method
+* Add is_connected() method
+
+1.8 -
+
+* Improve state information
+* Failed authentications no longer throw uncaught exceptions within code
+* Better capture of when websocket is disconnected
+

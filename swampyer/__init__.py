@@ -105,6 +105,11 @@ class WAMPClient(threading.Thread):
         self._request_loop_notify_restart.notify()
         self._request_loop_notify_restart.release()
 
+    def is_disconnected(self):
+        """ returns a true value if the connection is currently dead
+        """
+        return ( self._state == STATE_DISCONNECTED )
+
     def is_connected(self):
         """ returns a true value if the connection is currently active
         """
@@ -163,6 +168,8 @@ class WAMPClient(threading.Thread):
     def call(self, uri, *args, **kwargs ):
         """ Sends a RPC request to the WAMP server
         """
+        if self._state == STATE_DISCONNECTED:
+            raise Exception("WAMP is currently disconnected!")
         options = {
             'disclose_me': True
         }
@@ -190,6 +197,8 @@ class WAMPClient(threading.Thread):
         """ Send awamp message to the server. We don't wait
             for a response here. Just fire out a message
         """
+        if self._state == STATE_DISCONNECTED:
+            raise Exception("WAMP is currently disconnected!")
         message = message.as_str()
         logger.debug("SND>: {}".format(message))
         self.ws.send(message)
@@ -198,6 +207,8 @@ class WAMPClient(threading.Thread):
         """ Used by most things. Sends out a request then awaits a response
             keyed by the request_id
         """
+        if self._state == STATE_DISCONNECTED:
+            raise Exception("WAMP is currently disconnected!")
         wait_queue = queue.Queue()
         request_id = request.request_id
         self._requests_pending[request_id] = wait_queue;
@@ -405,6 +416,14 @@ class WAMPClient(threading.Thread):
         self.hello()
         return self
 
+    def reconnect(self):
+        """ Attempt to reconnect to the WAMP server. Thia also assumes that
+            the main loop is still running
+        """
+        self.connect()
+        self.hello()
+        return self
+
     def register(self,uri,callback,options=None):
         uri = self.uri_base + '.' + uri
         result = self.send_and_await_response(REGISTER(
@@ -438,6 +457,7 @@ class WAMPClient(threading.Thread):
                 # If we don't have a websocket defined.
                 # we don't go further either
                 elif not self.ws:
+                    logger.debug("No longer have a websocket. Marking disconnected")
                     self._state = STATE_DISCONNECTED
                     continue
 
@@ -445,7 +465,8 @@ class WAMPClient(threading.Thread):
                 data = self.ws.recv()
             except websocket.WebSocketTimeoutException:
                 continue
-            except websocket.WebSocketConnectionClosedException:
+            except websocket.WebSocketConnectionClosedException as ex:
+                logger.debug("WebSocketConnectionClosedException: Requesting disconnect:".format(ex))
                 self.disconnect()
             if not data: continue
 
