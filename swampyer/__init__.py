@@ -348,13 +348,19 @@ class WAMPClient(threading.Thread):
         """
         id = self.generate_request_id()
         topic = self.uri_base + '.' + topic
-        result = self.send_and_await_response(PUBLISH(
-                    options=options or {},
-                    topic=topic,
-                    args=args or [],
-                    kwargs=kwargs or {}
-                  ))
-        return result
+        if options is None:
+            options = {'acknowledge':True}
+        if options.get('acknowledge'):
+            result = self.send_and_await_response(PUBLISH(
+                        options=options or {},
+                        topic=topic,
+                        args=args or [],
+                        kwargs=kwargs or {}
+                      ))
+            return result
+        else:
+            self.send_message(request)
+            return id
 
     def disconnect(self):
         """ Disconnect from the websocket and pause the process
