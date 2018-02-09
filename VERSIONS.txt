@@ -2,9 +2,10 @@
 
 * Add is_connected() method
 
-1.8 -
+1.8 - Thu Feb  8 20:18:31 PST 2018
 
 * Improve state information
 * Failed authentications no longer throw uncaught exceptions within code
 * Better capture of when websocket is disconnected
+* Ensure PUBLISH.Options.acknowledge is handled properly
 
