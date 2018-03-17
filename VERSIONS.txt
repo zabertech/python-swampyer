@@ -9,3 +9,11 @@
 * Better capture of when websocket is disconnected
 * Ensure PUBLISH.Options.acknowledge is handled properly
 
+1.9 - Fri Mar  2 12:37:07 PST 2018
+
+* Ensure PUBLISH does not fail when PUBLISH.Options.acknowledge is false
+
+1.10 - Fri Mar 16 17:07:29 PDT 2018
+
+* WAMPClientTicket was not sending 'ticket' as a supported authmethod
+

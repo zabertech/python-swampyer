@@ -359,7 +359,12 @@ class WAMPClient(threading.Thread):
                       ))
             return result
         else:
-            self.send_message(request)
+            self.send_message(PUBLISH(
+                        options=options or {},
+                        topic=topic,
+                        args=args or [],
+                        kwargs=kwargs or {}
+                      ))
             return id
 
     def disconnect(self):
@@ -502,6 +507,8 @@ class WAMPClientTicket(WAMPClient):
                 **kwargs
                 ):
 
+        if not kwargs.get('authmethods'):
+            kwargs['authmethods'] = [u'ticket']
         super(WAMPClientTicket,self).__init__(**kwargs)
         self.daemon = True
 
