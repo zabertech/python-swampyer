@@ -17,3 +17,6 @@
 
 * WAMPClientTicket was not sending 'ticket' as a supported authmethod
 
+1.11 - Mon Mar 26 09:02:39 PDT 2018
+
+* Add support for autoreconnect
