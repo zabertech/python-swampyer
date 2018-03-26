@@ -16,6 +16,11 @@ STATE_WEBSOCKET_CONNECTED = 3
 STATE_AUTHENTICATING = 4
 STATE_CONNECTED = 2
 
+REGISTERED_CALL_URI = 0
+REGISTERED_CALL_CALLBACK = 1
+SUBSCRIPTION_TOPIC = 0
+SUBSCRIPTION_CALLBACK = 1
+
 class WAMPClient(threading.Thread):
     ws = None
     url = None
@@ -25,6 +30,8 @@ class WAMPClient(threading.Thread):
     authid = None
     authmethods = None
     timeout = None
+
+    auto_reconnect = True
 
     session_id = None
     peer = None
@@ -47,6 +54,7 @@ class WAMPClient(threading.Thread):
                 authmethods=None,
                 authid=None,
                 timeout=10,
+                auto_reconnect=True,
                 ):
 
         self._state = STATE_DISCONNECTED
@@ -62,6 +70,7 @@ class WAMPClient(threading.Thread):
             timeout = timeout,
             authid = authid,
             authmethods = authmethods,
+            auto_reconnect = auto_reconnect,
         )
 
     def generate_request_id(self):
@@ -89,10 +98,22 @@ class WAMPClient(threading.Thread):
             origin_port = ':'+m.group(3) if m.group(3) else ''
             options['origin'] = u'https://{}{}'.format(m.group(2),origin_port)
 
-        self.ws = websocket.create_connection(
-                        self.url,
-                        **options
-                    )
+        # Attempt connection once unless it's autoreconnect in which
+        # case we try and try again...
+        while True:
+            try:
+                self.ws = websocket.create_connection(
+                                self.url,
+                                **options
+                            )
+            except Exception as ex:
+                if self.auto_reconnect:
+                    # FIXME: how long to wait?
+                    time.sleep(1)
+                    continue
+                else:
+                    raise
+            break
 
         logger.debug("Connected to {}".format(self.url))
         self._subscriptions    = {}
@@ -117,7 +138,8 @@ class WAMPClient(threading.Thread):
 
     def configure(self, **kwargs):
         for k in ('url','uri_base','realm',
-                  'agent','timeout','authmethods', 'authid'):
+                  'agent','timeout','authmethods', 'authid',
+                  'auto_reconnect'):
             if k in kwargs:
                 setattr(self,k,kwargs[k])
 
@@ -286,7 +308,7 @@ class WAMPClient(threading.Thread):
         reg_id = message.registration_id
         if reg_id in self._registered_calls:
             try:
-                result = self._registered_calls[reg_id](
+                result = self._registered_calls[reg_id][REGISTERED_CALL_URI](
                     message,
                     *(message.args),
                     **(message.kwargs)
@@ -320,7 +342,7 @@ class WAMPClient(threading.Thread):
         subscription_id = event.subscription_id
         if subscription_id in self._subscriptions:
             # FIXME: [1] should be a constant
-            self._subscriptions[subscription_id][1](event)
+            self._subscriptions[subscription_id][SUBSCRIPTION_CALLBACK](event)
 
     def handle_unknown(self, message):
         """ We don't know what to do with this. So we'll send it
@@ -407,6 +429,21 @@ class WAMPClient(threading.Thread):
                         ))
         self._requests_pending = {}
 
+        # Well damn, if the server disconnected, let's try and reconnect
+        # back to the service after a random few seconds
+        if self.auto_reconnect:
+            # As doing a reconnect would block and would then
+            # prevent us from ticking the websoocket, we'll
+            # go into a subthread to deal with the reconnection
+            def reconnect():
+                print "Reconnecting!"
+                self.reconnect()
+            t = threading.Thread(target=reconnect)
+            t.start()
+
+            # FIXME: need to randomly wait
+            time.sleep(1)
+
     def shutdown(self):
         """ Request the system to shutdown the main loop and shutdown the system
             This is a one-way trip! Reconnecting requires a new connection
@@ -433,6 +470,18 @@ class WAMPClient(threading.Thread):
         """
         self.connect()
         self.hello()
+
+        # Then rebind all the registrations and callbacks
+        to_register = self._registered_calls
+        self._registered_calls = {}
+        for uri, callback in to_register.values():
+            self.register(uri,callback)
+
+        to_subscribe = self._subscriptions
+        self._subscriptions = {}
+        for uri, callback in to_subscribe.values():
+            self.subscribe(uri,callback)
+
         return self
 
     def register(self,uri,callback,options=None):
@@ -442,7 +491,7 @@ class WAMPClient(threading.Thread):
                       procedure=uri
                   ))
         if result == WAMP_REGISTERED:
-            self._registered_calls[result.registration_id] = callback
+            self._registered_calls[result.registration_id] = [ uri, callback ]
         return result
 
     def run(self):
