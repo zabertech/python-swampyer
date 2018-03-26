@@ -20,3 +20,8 @@
 1.11 - Mon Mar 26 09:02:39 PDT 2018
 
 * Add support for autoreconnect
+
+1.12 - Mon Mar 26 09:30:50 PDT 2018
+
+* Remove debug data (print statement that causes problems in Py3). Whoops
+

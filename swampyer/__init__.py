@@ -436,7 +436,6 @@ class WAMPClient(threading.Thread):
             # prevent us from ticking the websoocket, we'll
             # go into a subthread to deal with the reconnection
             def reconnect():
-                print "Reconnecting!"
                 self.reconnect()
             t = threading.Thread(target=reconnect)
             t.start()
