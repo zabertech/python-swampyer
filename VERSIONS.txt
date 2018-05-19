@@ -25,3 +25,8 @@
 
 * Remove debug data (print statement that causes problems in Py3). Whoops
 
+1.12 - Sat May 19 07:59:39 PDT 2018
+
+* INVOKE requests were trying to execute URI rather than the function reference
+
+
