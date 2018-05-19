@@ -308,7 +308,7 @@ class WAMPClient(threading.Thread):
         reg_id = message.registration_id
         if reg_id in self._registered_calls:
             try:
-                result = self._registered_calls[reg_id][REGISTERED_CALL_URI](
+                result = self._registered_calls[reg_id][REGISTERED_CALL_CALLBACK](
                     message,
                     *(message.args),
                     **(message.kwargs)
