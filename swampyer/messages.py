@@ -49,7 +49,6 @@ MESSAGE_TYPES = dict(
 MESSAGE_CLASS_LOOKUP = {}
 MESSAGE_NAME_LOOKUP = {}
 
-
 class WampMessage(object):
     _fields = []     # autoset
     code_name = None # autoset

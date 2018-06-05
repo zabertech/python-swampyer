@@ -21,6 +21,54 @@ REGISTERED_CALL_CALLBACK = 1
 SUBSCRIPTION_TOPIC = 0
 SUBSCRIPTION_CALLBACK = 1
 
+class WampInvokeWrapper(threading.Thread):
+    """ Used to put invoke requests on a separate thread
+        so we can make WAMP requests while in a WAMP request
+    """
+    def __init__(self,client,handler,message):
+        super(WampInvokeWrapper,self).__init__()
+        self.client = client
+        self.handler = handler
+        self.message = message
+
+    def run(self):
+        message = self.message
+        req_id = message.request_id
+
+        try:
+            result = self.handler(
+                message,
+                *(message.args),
+                **(message.kwargs)
+            )
+            self.client.send_message(YIELD(
+                request_id = req_id,
+                options={},
+                args=[result]
+            ))
+        except Exception as ex:
+            error_uri = self.client.uri_base + '.error.invoke.failure'
+            self.client.send_message(ERROR(
+                request_code = WAMP_INVOCATION,
+                request_id = req_id,
+                details = {},
+                error = error_uri,
+                args = [u'Call failed: {}'.format(ex)],
+            ))
+
+class WampSubscriptionWrapper(threading.Thread):
+    """ Used to put invoke requests on a separate thread
+        so we can make WAMP requests while in a WAMP request
+    """
+    def __init__(self,client,handler,event):
+        super(WampSubscriptionWrapper,self).__init__()
+        self.client = client
+        self.handler = handler
+        self.event = event
+
+    def run(self):
+        self.handler(self.event)
+
 class WAMPClient(threading.Thread):
     ws = None
     url = None
@@ -307,26 +355,9 @@ class WAMPClient(threading.Thread):
         req_id = message.request_id
         reg_id = message.registration_id
         if reg_id in self._registered_calls:
-            try:
-                result = self._registered_calls[reg_id][REGISTERED_CALL_CALLBACK](
-                    message,
-                    *(message.args),
-                    **(message.kwargs)
-                )
-                self.send_message(YIELD(
-                    request_id = req_id,
-                    options={},
-                    args=[result]
-                ))
-            except Exception as ex:
-                error_uri = self.uri_base + '.error.invoke.failure'
-                self.send_message(ERROR(
-                    request_code = WAMP_INVOCATION,
-                    request_id = req_id,
-                    details = {},
-                    error = error_uri,
-                    args = [u'Call failed: {}'.format(ex)],
-                ))
+            handler = self._registered_calls[reg_id][REGISTERED_CALL_CALLBACK]
+            invoke = WampInvokeWrapper(self,handler,message)
+            invoke.start()
         else:
             error_uri = self.uri_base + '.error.unknown.uri'
             self.send_message(ERROR(
@@ -342,7 +373,8 @@ class WAMPClient(threading.Thread):
         subscription_id = event.subscription_id
         if subscription_id in self._subscriptions:
             # FIXME: [1] should be a constant
-            self._subscriptions[subscription_id][SUBSCRIPTION_CALLBACK](event)
+            handler = self._subscriptions[subscription_id][SUBSCRIPTION_CALLBACK]
+            WampSubscriptionWrapper(self,handler,event)
 
     def handle_unknown(self, message):
         """ We don't know what to do with this. So we'll send it
