@@ -131,7 +131,7 @@ class WAMPClient(threading.Thread):
         """
         return int(round(time.time() * 1000))
 
-    def connect(self,**options):
+    def connect(self,soft_reset=False,**options):
         """ This just creates the websocket connection
         """
         self._state = STATE_CONNECTING
@@ -169,8 +169,9 @@ class WAMPClient(threading.Thread):
             break
 
         logger.debug("Connected to {}".format(self.url))
-        self._subscriptions    = {}
-        self._registered_calls = {}
+        if not soft_reset:
+            self._subscriptions    = {}
+            self._registered_calls = {}
         self._requests_pending = {}
         self._state = STATE_WEBSOCKET_CONNECTED
 
@@ -300,7 +301,12 @@ class WAMPClient(threading.Thread):
         # If we are awaiting to login, then we might also get
         # an abort message. Handle that here....
         if self._state == STATE_AUTHENTICATING:
-            self._welcome_queue.put(result)
+            # If the authentication message is something unexpected,
+            # we'll just ignore it for now
+            if result == WAMP_ABORT \
+               or result == WAMP_WELCOME \
+               or result == WAMP_GOODBYE:
+                self._welcome_queue.put(result)
             return
 
         try:
@@ -392,10 +398,10 @@ class WAMPClient(threading.Thread):
         """ Subscribe to a uri for events from a publisher
         """
         id = self.generate_request_id()
-        topic = self.uri_base + '.' + topic
+        full_topic = self.uri_base + '.' + topic
         result = self.send_and_await_response(SUBSCRIBE(
                                     options={},
-                                    topic=topic
+                                    topic=full_topic
                                 ))
         if result == WAMP_SUBSCRIBED:
             if not callback:
@@ -504,7 +510,11 @@ class WAMPClient(threading.Thread):
         """ Attempt to reconnect to the WAMP server. Thia also assumes that
             the main loop is still running
         """
-        self.connect()
+
+        # Reset the connection
+        self.connect(soft_reset=True)
+
+        # And hello hello
         self.hello()
 
         # Then rebind all the registrations and callbacks
@@ -521,10 +531,10 @@ class WAMPClient(threading.Thread):
         return self
 
     def register(self,uri,callback,options=None):
-        uri = self.uri_base + '.' + uri
+        full_uri = self.uri_base + '.' + uri
         result = self.send_and_await_response(REGISTER(
                       options=options or {},
-                      procedure=uri
+                      procedure=full_uri
                   ))
         if result == WAMP_REGISTERED:
             self._registered_calls[result.registration_id] = [ uri, callback ]
