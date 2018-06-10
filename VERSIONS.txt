@@ -34,3 +34,8 @@
 * INVOKE/SUBCRIBE responses were being executed in the main run thread causing deadlocks
   They should have their own thread instead
 
+1.15 - Tue Jun  5 12:07:51 PDT 2018
+
+* SUBSCRIPTION handler wasn't invoking the thread
+* Made subscription handler call resemble invoke method for consistency
+

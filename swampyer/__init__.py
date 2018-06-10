@@ -67,7 +67,12 @@ class WampSubscriptionWrapper(threading.Thread):
         self.event = event
 
     def run(self):
-        self.handler(self.event)
+        event = self.event
+        self.handler(
+            event,
+            *(event.args),
+            **(event.kwargs)
+        )
 
 class WAMPClient(threading.Thread):
     ws = None
@@ -374,7 +379,7 @@ class WAMPClient(threading.Thread):
         if subscription_id in self._subscriptions:
             # FIXME: [1] should be a constant
             handler = self._subscriptions[subscription_id][SUBSCRIPTION_CALLBACK]
-            WampSubscriptionWrapper(self,handler,event)
+            WampSubscriptionWrapper(self,handler,event).start()
 
     def handle_unknown(self, message):
         """ We don't know what to do with this. So we'll send it
