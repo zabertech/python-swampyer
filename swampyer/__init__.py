@@ -569,6 +569,8 @@ class WAMPClient(threading.Thread):
 
                 # Okay, we think we're okay so let's try and read some data
                 data = self.ws.recv()
+            except BlockingIOError:
+                continue
             except websocket.WebSocketTimeoutException:
                 continue
             except websocket.WebSocketConnectionClosedException as ex:
