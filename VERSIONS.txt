@@ -39,3 +39,10 @@
 * SUBSCRIPTION handler wasn't invoking the thread
 * Made subscription handler call resemble invoke method for consistency
 
+1.16 - Sun Jun 10 15:55:04 PDT 2018
+
+* when reconnecting, client was prefixing the prefix of the uri
+* when saying hello, ensure that only relevant messages get acknowledged
+* uri was getting mangled when reconnecting
+* IOBlockingError caused the reciever thread to abormally terminate
+
