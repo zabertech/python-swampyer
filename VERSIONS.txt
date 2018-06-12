@@ -46,3 +46,6 @@
 * uri was getting mangled when reconnecting
 * IOBlockingError caused the reciever thread to abormally terminate
 
+1.17 - Tue Jun 12 11:37:20 PDT 2018
+* IOBlockingError is only global in python3. Import io
+

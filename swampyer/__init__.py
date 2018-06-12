@@ -1,4 +1,5 @@
 import re
+import io
 import json
 import time
 import threading
@@ -569,7 +570,7 @@ class WAMPClient(threading.Thread):
 
                 # Okay, we think we're okay so let's try and read some data
                 data = self.ws.recv()
-            except BlockingIOError:
+            except io.BlockingIOError:
                 continue
             except websocket.WebSocketTimeoutException:
                 continue
