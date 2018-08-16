@@ -531,10 +531,10 @@ class WAMPClient(threading.Thread):
 
         return self
 
-    def register(self,uri,callback,options=None):
+    def register(self,uri,callback,details=None):
         full_uri = self.uri_base + '.' + uri
         result = self.send_and_await_response(REGISTER(
-                      options=options or {},
+                      details=details or {},
                       procedure=full_uri
                   ))
         if result == WAMP_REGISTERED:
