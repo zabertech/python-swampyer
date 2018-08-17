@@ -1,4 +1,7 @@
+import random
 import time
+
+sysrand = random.SystemRandom()
 
 class FIELD(object):
     default = None
@@ -30,10 +33,9 @@ class CODE(FIELD):
 class ID(FIELD):
     default = None
     def default_value(self):
-        """ We cheat, we just use the millisecond timestamp for the request
-        """
-        millis = int(round(time.time() * 1000))
-        return millis
+        # Use the size from Javascript:
+        # https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number/MAX_SAFE_INTEGER
+        return sysrand.randint(1,9007199254740991)
 
 class LIST(FIELD):
     default = []
