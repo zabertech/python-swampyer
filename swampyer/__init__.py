@@ -48,7 +48,7 @@ class WampInvokeWrapper(threading.Thread):
                 args=[result]
             ))
         except Exception as ex:
-            error_uri = self.client.uri_base + '.error.invoke.failure'
+            error_uri = self.client.get_full_uri('error.invoke.failure')
             self.client.send_message(ERROR(
                 request_code = WAMP_INVOCATION,
                 request_id = req_id,
@@ -127,6 +127,13 @@ class WAMPClient(threading.Thread):
             auto_reconnect = auto_reconnect,
         )
 
+    def get_full_uri(self,uri):
+        """ Returns the full URI with prefix attached
+        """
+        if self.uri_base:
+            return self.uri_base + '.' + uri
+        return uri
+
     def generate_request_id(self):
         """ We cheat, we just use the millisecond timestamp for the request
         """
@@ -160,6 +167,7 @@ class WAMPClient(threading.Thread):
                                 self.url,
                                 **options
                             )
+                self.handle_connect()
             except Exception as ex:
                 if self.auto_reconnect:
                     # FIXME: how long to wait?
@@ -205,6 +213,31 @@ class WAMPClient(threading.Thread):
         """
         raise NotImplemented("Received Challenge but authentication not possible. Need to subclass 'handle_challenge'?")
 
+    def handle_connect(self):
+        """ When websocket has initially connected
+        """
+        pass
+
+    def handle_join(self,details):
+
+        # Then rebind all the registrations and callbacks
+        # if there's a need
+        to_register = self._registered_calls
+        self._registered_calls = {}
+        for uri, callback in to_register.values():
+            self.register(uri,callback)
+
+        to_subscribe = self._subscriptions
+        self._subscriptions = {}
+        for uri, callback in to_subscribe.values():
+            self.subscribe(uri,callback)
+
+    def handle_leave(self):
+        pass
+
+    def handle_disconnect(self):
+        pass
+
     def hello(self,details=None):
         """ Say hello to the server and wait for the welcome
             message before proceeding
@@ -242,6 +275,9 @@ class WAMPClient(threading.Thread):
         self.peer = message
         self._state = STATE_CONNECTED
 
+        # And hook register/subscribe to anything that's required
+        self.handle_join(message)
+
     def call(self, uri, *args, **kwargs ):
         """ Sends a RPC request to the WAMP server
         """
@@ -250,7 +286,7 @@ class WAMPClient(threading.Thread):
         options = {
             'disclose_me': True
         }
-        uri = self.uri_base + '.' + uri
+        uri = self.get_full_uri(uri)
         message = self.send_and_await_response(CALL(
                       options=options,
                       procedure=uri,
@@ -371,7 +407,7 @@ class WAMPClient(threading.Thread):
             invoke = WampInvokeWrapper(self,handler,message)
             invoke.start()
         else:
-            error_uri = self.uri_base + '.error.unknown.uri'
+            error_uri = self.get_full_uri('error.unknown.uri')
             self.send_message(ERROR(
                 request_code = WAMP_INVOCATION,
                 request_id = req_id,
@@ -413,7 +449,7 @@ class WAMPClient(threading.Thread):
         """ Publishes a messages to the server
         """
         id = self.generate_request_id()
-        topic = self.uri_base + '.' + topic
+        topic = self.get_full_uri(topic)
         if options is None:
             options = {'acknowledge':True}
         if options.get('acknowledge'):
@@ -443,6 +479,7 @@ class WAMPClient(threading.Thread):
         if self.ws:
             try:
                 if self._state == STATE_CONNECTED:
+                    self.handle_leave()
                     self.send_message(GOODBYE(
                           details={},
                           reason="wamp.error.system_shutdown"
@@ -472,6 +509,7 @@ class WAMPClient(threading.Thread):
                           reason="wamp.error.system_shutdown"
                         ))
         self._requests_pending = {}
+        self.handle_disconnect()
 
         # Well damn, if the server disconnected, let's try and reconnect
         # back to the service after a random few seconds
@@ -518,21 +556,10 @@ class WAMPClient(threading.Thread):
         # And hello hello
         self.hello()
 
-        # Then rebind all the registrations and callbacks
-        to_register = self._registered_calls
-        self._registered_calls = {}
-        for uri, callback in to_register.values():
-            self.register(uri,callback)
-
-        to_subscribe = self._subscriptions
-        self._subscriptions = {}
-        for uri, callback in to_subscribe.values():
-            self.subscribe(uri,callback)
-
         return self
 
     def register(self,uri,callback,details=None):
-        full_uri = self.uri_base + '.' + uri
+        full_uri = self.get_full_uri(uri)
         result = self.send_and_await_response(REGISTER(
                       details=details or {},
                       procedure=full_uri
