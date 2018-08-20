@@ -314,6 +314,8 @@ class WAMPClient(threading.Thread):
             raise Exception("WAMP is currently disconnected!")
         message = message.as_str()
         logger.debug("SND>: {}".format(message))
+        if not self.ws:
+            raise Exception("WAMP is currently disconnected!")
         self.ws.send(message)
 
     def send_and_await_response(self,request):
@@ -435,7 +437,7 @@ class WAMPClient(threading.Thread):
         """ Subscribe to a uri for events from a publisher
         """
         id = self.generate_request_id()
-        full_topic = self.uri_base + '.' + topic
+        full_topic = self.get_full_uri(topic)
         result = self.send_and_await_response(SUBSCRIBE(
                                     options={},
                                     topic=full_topic
@@ -510,20 +512,6 @@ class WAMPClient(threading.Thread):
                         ))
         self._requests_pending = {}
         self.handle_disconnect()
-
-        # Well damn, if the server disconnected, let's try and reconnect
-        # back to the service after a random few seconds
-        if self.auto_reconnect:
-            # As doing a reconnect would block and would then
-            # prevent us from ticking the websoocket, we'll
-            # go into a subthread to deal with the reconnection
-            def reconnect():
-                self.reconnect()
-            t = threading.Thread(target=reconnect)
-            t.start()
-
-            # FIXME: need to randomly wait
-            time.sleep(1)
 
     def shutdown(self):
         """ Request the system to shutdown the main loop and shutdown the system
@@ -604,7 +592,21 @@ class WAMPClient(threading.Thread):
             except websocket.WebSocketConnectionClosedException as ex:
                 logger.debug("WebSocketConnectionClosedException: Requesting disconnect:".format(ex))
                 self.disconnect()
-            if not data: continue
+
+                # If the server disconnected, let's try and reconnect
+                # back to the service after a random few seconds
+                if self.auto_reconnect:
+                    # As doing a reconnect would block and would then
+                    # prevent us from ticking the websoocket, we'll
+                    # go into a subthread to deal with the reconnection
+                    def reconnect():
+                        self.reconnect()
+                    t = threading.Thread(target=reconnect)
+                    t.start()
+
+                    # FIXME: need to randomly wait
+                    time.sleep(1)
+                    if not data: continue
 
             try:
                 logger.debug("<RCV: {}".format(data))
