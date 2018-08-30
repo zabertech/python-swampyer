@@ -613,6 +613,9 @@ class WAMPClient(threading.Thread):
                     # FIXME: need to randomly wait
                     time.sleep(1)
                     if not data: continue
+            except Exception as ex:
+                logger.error("ERROR in main loop: {}".format(ex))
+                continue
 
             try:
                 logger.debug("<RCV: {}".format(data))
