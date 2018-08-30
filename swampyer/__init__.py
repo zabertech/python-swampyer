@@ -49,13 +49,19 @@ class WampInvokeWrapper(threading.Thread):
             ))
         except Exception as ex:
             error_uri = self.client.get_full_uri('error.invoke.failure')
-            self.client.send_message(ERROR(
-                request_code = WAMP_INVOCATION,
-                request_id = req_id,
-                details = {},
-                error = error_uri,
-                args = [u'Call failed: {}'.format(ex)],
-            ))
+            try:
+                self.client.send_message(ERROR(
+                    request_code = WAMP_INVOCATION,
+                    request_id = req_id,
+                    details = {},
+                    error = error_uri,
+                    args = [u'Call failed: {}'.format(ex)],
+                ))
+
+            # We might fail when we try to send an error message back to the
+            # server (should we have disconnected)
+            except Exception as ex:
+                logger.error("ERROR attempting to send error message: {}".format(ex))
 
 class WampSubscriptionWrapper(threading.Thread):
     """ Used to put invoke requests on a separate thread
@@ -620,8 +626,7 @@ class WAMPClient(threading.Thread):
                 except AttributeError as ex:
                     self.handle_unknown(message)
             except Exception as ex:
-                # FIXME: Needs more granular exception handling
-                raise
+                logger.error("ERROR in main loop: {}".format(ex))
 
 class WAMPClientTicket(WAMPClient):
     username = None
