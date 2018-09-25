@@ -4,6 +4,7 @@ import json
 import time
 import threading
 import six
+import ssl
 from six.moves import queue
 
 import websocket
@@ -90,6 +91,8 @@ class WAMPClient(threading.Thread):
     authid = None
     authmethods = None
     timeout = None
+    sslopt = None
+    sockopt = None
 
     auto_reconnect = True
 
@@ -115,6 +118,8 @@ class WAMPClient(threading.Thread):
                 authid=None,
                 timeout=10,
                 auto_reconnect=True,
+                sslopt=None,
+                sockopt=None,
                 ):
 
         self._state = STATE_DISCONNECTED
@@ -131,6 +136,8 @@ class WAMPClient(threading.Thread):
             authid = authid,
             authmethods = authmethods,
             auto_reconnect = auto_reconnect,
+            sslopt = sslopt,
+            sockopt = sockopt,
         )
 
     def get_full_uri(self,uri):
@@ -169,6 +176,21 @@ class WAMPClient(threading.Thread):
         # case we try and try again...
         while True:
             try:
+                if self.sslopt:
+                    options.setdefault('sslopt',self.sslopt)
+
+                # By default if no settings are chosen we apply
+                # the looser traditional policy (makes life less
+                # secure but less excruciating on windows)
+                if options.get('sslopt') is None:
+                    options['sslopt'] = {
+                        "cert_reqs":ssl.CERT_NONE,
+                        "check_hostname": False
+                    }
+
+                if self.sockopt:
+                    options.setdefault('sockopt',self.sockopt)
+
                 self.ws = websocket.create_connection(
                                 self.url,
                                 **options
@@ -208,7 +230,7 @@ class WAMPClient(threading.Thread):
     def configure(self, **kwargs):
         for k in ('url','uri_base','realm',
                   'agent','timeout','authmethods', 'authid',
-                  'auto_reconnect'):
+                  'auto_reconnect', 'sslopt', 'sockopt'):
             if k in kwargs:
                 setattr(self,k,kwargs[k])
 

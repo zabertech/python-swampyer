@@ -49,3 +49,5 @@
 1.17 - Tue Jun 12 11:37:20 PDT 2018
 * IOBlockingError is only global in python3. Import io
 
+1.23 - Tue Sep 25 11:41:36 PDT 2018
+* New version of websocket-client was causing hangs on certain servers when connecting to wss
