@@ -117,7 +117,7 @@ class WAMPClient(threading.Thread):
                 authmethods=None,
                 authid=None,
                 timeout=10,
-                auto_reconnect=True,
+                auto_reconnect=1,
                 sslopt=None,
                 sockopt=None,
                 ):
@@ -127,6 +127,8 @@ class WAMPClient(threading.Thread):
         super(WAMPClient,self).__init__()
         self.daemon = True
         self._request_loop_notify_restart = threading.Condition()
+        if auto_reconnect == True:
+            auto_reconnect = 1
         self.configure(
             url = url,
             uri_base = uri_base,
@@ -198,8 +200,14 @@ class WAMPClient(threading.Thread):
                 self.handle_connect()
             except Exception as ex:
                 if self.auto_reconnect:
-                    # FIXME: how long to wait?
-                    time.sleep(1)
+                    logger.debug(
+                        "Error connecting to {url}. Reconnection attempt in {retry} second(s). {err}".format(
+                            url=self.url,
+                            retry=self.auto_reconnect,
+                            err=ex
+                        )
+                    )
+                    time.sleep(self.auto_reconnect)
                     continue
                 else:
                     raise
@@ -694,4 +702,3 @@ class WAMPClientTicket(WAMPClient):
             signature = self.password,
             extra = {}
         ))
-
