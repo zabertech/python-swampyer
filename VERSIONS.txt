@@ -51,3 +51,8 @@
 
 1.23 - Tue Sep 25 11:41:36 PDT 2018
 * New version of websocket-client was causing hangs on certain servers when connecting to wss
+
+1.24 - Tue Sep 25 15:05:00 PDT 2018
+* Log a debug message on failed connection attempts with auto_reconnect
+* Store retry seconds in auto_reconnect with default of 1 (Setting True results in default)
+
