@@ -5,6 +5,7 @@ import time
 import threading
 import six
 import ssl
+import random
 from six.moves import queue
 
 import websocket
@@ -149,11 +150,6 @@ class WAMPClient(threading.Thread):
             return self.uri_base + '.' + uri
         return uri
 
-    def generate_request_id(self):
-        """ We cheat, we just use the millisecond timestamp for the request
-        """
-        return int(round(time.time() * 1000))
-
     def connect(self,soft_reset=False,**options):
         """ This just creates the websocket connection
         """
@@ -163,6 +159,7 @@ class WAMPClient(threading.Thread):
         m = re.search('(ws+)://([\w\.]+)(:?:(\d+))?',self.url)
 
         options['subprotocols'] = ['wamp.2.json']
+        options['enable_multithread'] = True
         options.setdefault('timeout',self._loop_timeout)
 
         # Handle the weird issue in websocket that the origin
@@ -472,7 +469,6 @@ class WAMPClient(threading.Thread):
     def subscribe(self,topic,callback=None,options=None):
         """ Subscribe to a uri for events from a publisher
         """
-        id = self.generate_request_id()
         full_topic = self.get_full_uri(topic)
         result = self.send_and_await_response(SUBSCRIBE(
                                     options={},
@@ -486,26 +482,27 @@ class WAMPClient(threading.Thread):
     def publish(self,topic,options=None,args=None,kwargs=None):
         """ Publishes a messages to the server
         """
-        id = self.generate_request_id()
         topic = self.get_full_uri(topic)
         if options is None:
             options = {'acknowledge':True}
         if options.get('acknowledge'):
-            result = self.send_and_await_response(PUBLISH(
+            request = PUBLISH(
                         options=options or {},
                         topic=topic,
                         args=args or [],
                         kwargs=kwargs or {}
-                      ))
+                      )
+            result = self.send_and_await_response(request)
             return result
         else:
-            self.send_message(PUBLISH(
+            request = PUBLISH(
                         options=options or {},
                         topic=topic,
                         args=args or [],
                         kwargs=kwargs or {}
-                      ))
-            return id
+                      )
+            self.send_message(request)
+            return request.request_id
 
     def disconnect(self):
         """ Disconnect from the websocket and pause the process
