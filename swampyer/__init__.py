@@ -5,7 +5,6 @@ import time
 import threading
 import six
 import ssl
-import random
 from six.moves import queue
 
 import websocket
