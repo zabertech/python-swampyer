@@ -59,3 +59,6 @@
 1.25 - Mon Oct  1 11:24:38 PDT 2018
 * Enable enable_multithread websockets mode
 * Fix message request_id regression
+
+1.20190327 - Wed Mar 27 13:36:57 PDT 2019
+* subscribe wasn't passing along options
