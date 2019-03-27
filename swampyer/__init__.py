@@ -470,7 +470,7 @@ class WAMPClient(threading.Thread):
         """
         full_topic = self.get_full_uri(topic)
         result = self.send_and_await_response(SUBSCRIBE(
-                                    options={},
+                                    options=options or {},
                                     topic=full_topic
                                 ))
         if result == WAMP_SUBSCRIBED:
