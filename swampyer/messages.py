@@ -2,6 +2,7 @@
 import sys
 import json
 import six
+import decimal
 
 from .fields import *
 
@@ -48,6 +49,18 @@ MESSAGE_TYPES = dict(
 )
 MESSAGE_CLASS_LOOKUP = {}
 MESSAGE_NAME_LOOKUP = {}
+
+class WampJSONEncoder(json.JSONEncoder):
+    """ To handle types not typically handled by JSON
+
+        This currently just handles Decimal values and turns them
+        into floats. A bit nasty but lets us continue with work
+        without making nasty customizations to WAMP JSON
+    """
+    def default(self, obj):
+        if isinstance(obj, decimal.Decimal):
+            return float(obj)
+        return json.JSONEncoder.default(self, obj)
 
 class WampMessage(object):
     _fields = []     # autoset
@@ -108,7 +121,7 @@ class WampMessage(object):
         return s
 
     def as_str(self):
-        return json.dumps(self.package())
+        return json.dumps(self.package(), cls=WampJSONEncoder)
 
     def __getitem__(self,k):
         return getattr(self,k)
