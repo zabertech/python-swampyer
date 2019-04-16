@@ -57,3 +57,6 @@
 * Store retry seconds in auto_reconnect with default of 1 (Setting True results in default)
 * Enable enable_multithread websockets mode
 * Fix message request_id regression
+
+1.20190416 - Tue Apr 16 08:57:02 PDT 2019
+* Convert Decimals into floats (ugly)
