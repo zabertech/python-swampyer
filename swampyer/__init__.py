@@ -167,7 +167,7 @@ class WAMPClient(threading.Thread):
         # so we ensure we use http or https appropriately depending on the
         # ws or wss protocol
         if m and m.group(1).lower() == 'wss':
-            origin_port = ':'+m.group(3) if m.group(3) else ''
+            origin_port = ':'+m.group(4) if m.group(4) else ''
             options['origin'] = u'https://{}{}'.format(m.group(2),origin_port)
 
         # Attempt connection once unless it's autoreconnect in which
