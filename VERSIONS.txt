@@ -67,3 +67,5 @@
 1.20190416 - Tue Apr 16 08:57:02 PDT 2019
 * Convert Decimals into floats (ugly)
 
+1.20190622 - Sat Jun 22 06:15:10 PDT 2019
+* Fix bug when specifying port in wss connection string
