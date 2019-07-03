@@ -72,3 +72,4 @@
 1.20190703 - Wed Jul 3 13:59:42 PDT 2019
 * Change exception handling to carry more arguments from original exception
 * import unicode_literals from future for better 2/3 compatibility
+
