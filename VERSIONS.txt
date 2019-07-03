@@ -57,3 +57,9 @@
 * Store retry seconds in auto_reconnect with default of 1 (Setting True results in default)
 * Enable enable_multithread websockets mode
 * Fix message request_id regression
+
+1.25 - Wed Jul 3 13:59:42 PDT 2019
+* Fix an ssl error
+* Change exception handling to carry more arguments from original exception
+* import unicode_literals from future for better 2/3 compatibility
+
