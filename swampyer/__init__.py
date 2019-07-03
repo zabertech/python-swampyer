@@ -341,10 +341,10 @@ class WAMPClient(threading.Thread):
 
         if message == WAMP_ERROR:
             if message.args:
-                err = message.args[0]
+                err = message.args
             else:
-                err = message.error
-            raise ExInvocationError(err)
+                err = [message.error]
+            raise ExInvocationError(*err)
 
         return message
 
