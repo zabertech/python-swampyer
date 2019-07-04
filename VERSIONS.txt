@@ -60,7 +60,6 @@
 * Enable enable_multithread websockets mode
 * Fix message request_id regression
 
-
 1.20190327 - Wed Mar 27 13:36:57 PDT 2019
 * subscribe wasn't passing along options
 
@@ -69,3 +68,8 @@
 
 1.20190622 - Sat Jun 22 06:15:10 PDT 2019
 * Fix bug when specifying port in wss connection string
+
+1.20190703 - Wed Jul 3 13:59:42 PDT 2019
+* Change exception handling to carry more arguments from original exception
+* import unicode_literals from future for better 2/3 compatibility
+

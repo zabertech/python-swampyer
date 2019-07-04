@@ -1,3 +1,5 @@
+from __future__ import unicode_literals
+
 import re
 import io
 import json
@@ -50,13 +52,21 @@ class WampInvokeWrapper(threading.Thread):
             ))
         except Exception as ex:
             error_uri = self.client.get_full_uri('error.invoke.failure')
+
+            exargs = ["Call failed: {}".format(ex)]
+            try:
+                json.dumps(ex.args) # Just testing
+                exargs += list(ex.args)
+            except TypeError as err:
+                logger.warning("Unable to serialize exception arguments: {}".format(ex))
+
             try:
                 self.client.send_message(ERROR(
                     request_code = WAMP_INVOCATION,
                     request_id = req_id,
                     details = {},
                     error = error_uri,
-                    args = [u'Call failed: {}'.format(ex)],
+                    args = exargs
                 ))
 
             # We might fail when we try to send an error message back to the
@@ -168,7 +178,7 @@ class WAMPClient(threading.Thread):
         # ws or wss protocol
         if m and m.group(1).lower() == 'wss':
             origin_port = ':'+m.group(4) if m.group(4) else ''
-            options['origin'] = u'https://{}{}'.format(m.group(2),origin_port)
+            options['origin'] = 'https://{}{}'.format(m.group(2),origin_port)
 
         # Attempt connection once unless it's autoreconnect in which
         # case we try and try again...
@@ -280,8 +290,8 @@ class WAMPClient(threading.Thread):
             details = {}
         if self.authid:
             details.setdefault('authid', self.authid)
-        details.setdefault('agent', u'swampyer-1.0')
-        details.setdefault('authmethods', self.authmethods or [u'anonymous'])
+        details.setdefault('agent', 'swampyer-1.0')
+        details.setdefault('authmethods', self.authmethods or ['anonymous'])
         details.setdefault('roles', {
                                         'subscriber': {},
                                         'publisher': {},
@@ -331,10 +341,10 @@ class WAMPClient(threading.Thread):
 
         if message == WAMP_ERROR:
             if message.args:
-                err = message.args[0]
+                err = message.args
             else:
-                err = message.error
-            raise ExInvocationError(err)
+                err = [message.error]
+            raise ExInvocationError(*err)
 
         return message
 
@@ -669,7 +679,7 @@ class WAMPClientTicket(WAMPClient):
                 ):
 
         if not kwargs.get('authmethods'):
-            kwargs['authmethods'] = [u'ticket']
+            kwargs['authmethods'] = ['ticket']
         super(WAMPClientTicket,self).__init__(**kwargs)
         self.daemon = True
 
