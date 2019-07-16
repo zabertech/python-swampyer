@@ -487,6 +487,18 @@ class WAMPClient(threading.Thread):
             if not callback:
                 callback = lambda a: None
             self._subscriptions[result.subscription_id] = [topic,callback]
+        return result.subscription_id
+
+    def unsubscribe(self, subscription_id):
+        """ Unsubscribe an existing subscription
+        """
+        request = UNSUBSCRIBE(subscription_id)
+        result = self.send_and_await_response(request)
+        try:
+            del self._subscriptions[subscription_id]
+        except IndexError:
+            logger.warn("Subscription ID '%s' not found locally. Sent unsubscribe to router anyway.")
+        return result
 
     def publish(self,topic,options=None,args=None,kwargs=None):
         """ Publishes a messages to the server
