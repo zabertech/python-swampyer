@@ -26,7 +26,7 @@ MESSAGE_TYPES = dict(
     SUBSCRIBE    = [ CODE('code',32), ID('request_id'), DICT('options'), URI('topic') ],
     SUBSCRIBED   = [ CODE('code',33), ID('request_id'), ID('subscription_id') ],
     UNSUBSCRIBE  = [ CODE('code',34), ID('request_id'), ID('subscription_id') ],
-    UNSUBSCRIBED = [ CODE('code',35), ID('subscription_id') ],
+    UNSUBSCRIBED = [ CODE('code',35), ID('request_id') ],
 
     EVENT        = [ CODE('code',36), ID('subscription_id'), ID('publish_id'), DICT('details'),
                       LIST('args',**OPT), DICT('kwargs',**OPT) ],

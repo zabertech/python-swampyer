@@ -492,12 +492,11 @@ class WAMPClient(threading.Thread):
     def unsubscribe(self, subscription_id):
         """ Unsubscribe an existing subscription
         """
-        request = UNSUBSCRIBE(subscription_id)
-        result = self.send_and_await_response(request)
+        result = self.send_and_await_response(UNSUBSCRIBE(subscription_id=subscription_id))
         try:
             del self._subscriptions[subscription_id]
         except IndexError:
-            logger.warn("Subscription ID '%s' not found locally. Sent unsubscribe to router anyway.")
+            logger.warn("Subscription ID '%s' not found in local subscription list. Sent unsubscribe to router anyway.")
         return result
 
     def publish(self,topic,options=None,args=None,kwargs=None):
