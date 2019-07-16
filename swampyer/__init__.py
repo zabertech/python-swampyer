@@ -487,7 +487,7 @@ class WAMPClient(threading.Thread):
             if not callback:
                 callback = lambda a: None
             self._subscriptions[result.subscription_id] = [topic,callback]
-        return result.subscription_id
+        return result
 
     def unsubscribe(self, subscription_id):
         """ Unsubscribe an existing subscription
@@ -522,7 +522,7 @@ class WAMPClient(threading.Thread):
                         kwargs=kwargs or {}
                       )
             self.send_message(request)
-            return request.request_id
+            return None
 
     def disconnect(self):
         """ Disconnect from the websocket and pause the process
