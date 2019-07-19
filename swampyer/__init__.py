@@ -233,6 +233,27 @@ class WAMPClient(threading.Thread):
         self._request_loop_notify_restart.notify()
         self._request_loop_notify_restart.release()
 
+    def _send_ping(self, interval, event):
+        while not event.wait(interval):
+            self.last_ping_tm = time.time()
+            if self.sock:
+                try:
+                    self.sock.ping()
+                except Exception as ex:
+                    _logging.warning("send_ping routine terminated: {}".format(ex))
+                    break
+
+    def heartbeat(self, ping_interval):
+        """ starts a new thread that sends websocket ping messages to
+        the router.
+        """
+        if ping_interval:
+            event = threading.Event()
+            thread = threading.Thread(
+                target=self._send_ping, args=(ping_interval, event))
+            thread.setDaemon(True)
+            thread.start()
+
     def is_disconnected(self):
         """ returns a true value if the connection is currently dead
         """
@@ -579,13 +600,14 @@ class WAMPClient(threading.Thread):
                 break
             time.sleep(0.1)
 
-    def start(self):
+    def start(self, **options):
         """ Initialize websockets, say hello, and start listening for events
         """
-        self.connect()
+        self.connect(**options)
         if not self.isAlive():
             super(WAMPClient,self).start()
         self.hello()
+        self.heartbeat()
         return self
 
     def reconnect(self):
