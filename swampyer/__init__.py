@@ -115,7 +115,7 @@ class WAMPClient(threading.Thread):
     _requests_pending = None
     _request_disconnect = None
     _request_shutdown = False
-    _loop_timeout = 0.1
+    _loop_timeout = 1
     _state = STATE_DISCONNECTED
 
     def __init__(
@@ -127,12 +127,14 @@ class WAMPClient(threading.Thread):
                 authmethods=None,
                 authid=None,
                 timeout=10,
+                loop_timeout=1,
                 auto_reconnect=1,
                 sslopt=None,
                 sockopt=None,
                 ):
 
         self._state = STATE_DISCONNECTED
+        self._loop_timeout = loop_timeout
 
         super(WAMPClient,self).__init__()
         self.daemon = True
@@ -168,8 +170,6 @@ class WAMPClient(threading.Thread):
         m = re.search('(ws+)://([\w\.]+)(:?:(\d+))?',self.url)
 
         options['subprotocols'] = ['wamp.2.json']
-        options['enable_multithread'] = True
-        options.setdefault('timeout',self._loop_timeout)
 
         # Handle the weird issue in websocket that the origin
         # port will be always http://host:port even though connection is
@@ -190,8 +190,8 @@ class WAMPClient(threading.Thread):
                 # By default if no settings are chosen we apply
                 # the looser traditional policy (makes life less
                 # secure but less excruciating on windows)
-                if options.get('sslopt') is None:
-                    options['sslopt'] = {
+                if options.get("sslopt") is None:
+                    options["sslopt"] = {
                         "cert_reqs":ssl.CERT_NONE,
                         "check_hostname": False
                     }
@@ -199,10 +199,12 @@ class WAMPClient(threading.Thread):
                 if self.sockopt:
                     options.setdefault('sockopt',self.sockopt)
 
-                self.ws = websocket.create_connection(
-                                self.url,
-                                **options
-                            )
+                self.ws = websocket.WebSocket(fire_cont_frame=options.pop("fire_cont_frame", False),
+                                    skip_utf8_validation=options.pop("skip_utf8_validation", False),
+                                    enable_multithread=True,
+                                    **options)
+                self.ws.settimeout(self._loop_timeout)
+                self.ws.connect(self.url, **options)
                 self.handle_connect()
             except Exception as ex:
                 if self.auto_reconnect:
