@@ -118,6 +118,11 @@ class WAMPClient(threading.Thread):
     _loop_timeout = 1
     _state = STATE_DISCONNECTED
 
+    _last_ping_time = None
+    _last_pong_time = None
+    _heartbeat_thread = None
+    _stop_heartbeat = False
+
     def __init__(
                 self,
                 url='ws://localhost:8080',
@@ -233,26 +238,34 @@ class WAMPClient(threading.Thread):
         self._request_loop_notify_restart.notify()
         self._request_loop_notify_restart.release()
 
-    def _send_ping(self, interval, event):
-        while not event.wait(interval):
-            self.last_ping_tm = time.time()
-            if self.sock:
+    def start_heartbeat(self, interval, event):
+        self._last_ping_time = None
+        self._last_pong_time = None
+        while not event.wait(interval) and not self._stop_heartbeat:
+            self._last_ping_time = time.time()
+            if self.ws:
                 try:
-                    self.sock.ping()
+                    self.ws.ping(str(self._last_ping_time))
                 except Exception as ex:
-                    _logging.warning("send_ping routine terminated: {}".format(ex))
+                    logger.warning("Ping failed: %s")
                     break
+        self._stop_heartbeat = False
 
-    def heartbeat(self, ping_interval):
+    def stop_heartbeat(self):
+        self._stop_heartbeat = True
+
+    def heartbeat(self, ping_interval=1):
         """ starts a new thread that sends websocket ping messages to
         the router.
         """
+        self._stop_heartbeat = False
         if ping_interval:
             event = threading.Event()
             thread = threading.Thread(
-                target=self._send_ping, args=(ping_interval, event))
+                target=self.start_heartbeat, args=(ping_interval, event))
             thread.setDaemon(True)
             thread.start()
+            self.heartbeat_thread = thread
 
     def is_disconnected(self):
         """ returns a true value if the connection is currently dead
@@ -287,6 +300,9 @@ class WAMPClient(threading.Thread):
 
         # Then rebind all the registrations and callbacks
         # if there's a need
+        if details.details['authmethod'] != 'anonymous':
+            import logging;logging.error(details.details['authmethod'])
+            self.heartbeat(ping_interval=1)
         to_register = self._registered_calls
         self._registered_calls = {}
         for uri, callback in to_register.values():
@@ -436,11 +452,6 @@ class WAMPClient(threading.Thread):
         """
         pass
 
-    def handle_result(self, result):
-        """ Dispatch the result back to the appropriate awaiter
-        """
-        self.dispatch_to_awaiting(result)
-
     def handle_subscribed(self, result):
         """ Handle the successful subscription
         """
@@ -558,6 +569,7 @@ class WAMPClient(threading.Thread):
             try:
                 if self._state == STATE_CONNECTED:
                     self.handle_leave()
+                    self.stop_heartbeat()
                     self.send_message(GOODBYE(
                           details={},
                           reason="wamp.error.system_shutdown"
@@ -607,7 +619,6 @@ class WAMPClient(threading.Thread):
         if not self.isAlive():
             super(WAMPClient,self).start()
         self.hello()
-        self.heartbeat()
         return self
 
     def reconnect(self):
@@ -661,7 +672,16 @@ class WAMPClient(threading.Thread):
                     continue
 
                 # Okay, we think we're okay so let's try and read some data
-                data = self.ws.recv()
+                opcode, data = self.ws.recv_data(control_frame=True)
+                if six.PY3 and opcode == websocket.ABNF.OPCODE_TEXT:
+                    data = data.decode('utf-8')
+                if opcode == websocket.ABNF.OPCODE_PONG:
+                    duration = time.time() - float(data)
+                    self._last_pong_time = time.time()
+                    logger.debug('Received websocket ping response in %s seconds', round(duration, 3))
+                    continue
+                if opcode not in (websocket.ABNF.OPCODE_TEXT, websocket.ABNF.OPCODE_BINARY):
+                    continue
             except io.BlockingIOError:
                 continue
             except websocket.WebSocketTimeoutException:
