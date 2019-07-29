@@ -103,6 +103,8 @@ class WAMPClient(threading.Thread):
     timeout = None
     sslopt = None
     sockopt = None
+    loop_timeout = 1
+    heartbeat_timeout = 10
 
     auto_reconnect = True
 
@@ -115,7 +117,6 @@ class WAMPClient(threading.Thread):
     _requests_pending = None
     _request_disconnect = None
     _request_shutdown = False
-    _loop_timeout = 1
     _state = STATE_DISCONNECTED
 
     _last_ping_time = None
@@ -132,14 +133,14 @@ class WAMPClient(threading.Thread):
                 authmethods=None,
                 authid=None,
                 timeout=10,
-                loop_timeout=1,
+                loop_timeout=5,
+                heartbeat_timeout=5,
                 auto_reconnect=1,
                 sslopt=None,
                 sockopt=None,
                 ):
 
         self._state = STATE_DISCONNECTED
-        self._loop_timeout = loop_timeout
 
         super(WAMPClient,self).__init__()
         self.daemon = True
@@ -157,6 +158,8 @@ class WAMPClient(threading.Thread):
             auto_reconnect = auto_reconnect,
             sslopt = sslopt,
             sockopt = sockopt,
+            loop_timeout = loop_timeout,
+            heartbeat_timeout = heartbeat_timeout
         )
 
     def get_full_uri(self,uri):
@@ -208,7 +211,7 @@ class WAMPClient(threading.Thread):
                                     skip_utf8_validation=options.pop("skip_utf8_validation", False),
                                     enable_multithread=True,
                                     **options)
-                self.ws.settimeout(self._loop_timeout)
+                self.ws.settimeout(self.loop_timeout)
                 self.ws.connect(self.url, **options)
                 self.handle_connect()
             except Exception as ex:
@@ -247,8 +250,7 @@ class WAMPClient(threading.Thread):
                 try:
                     self.ws.ping(str(self._last_ping_time))
                 except Exception as ex:
-                    logger.warning("Ping failed: %s")
-                    break
+                    raise websocket.WebSocketConnectionClosedException("Ping failed: %s", ex)
         self._stop_heartbeat = False
 
     def stop_heartbeat(self):
@@ -280,7 +282,8 @@ class WAMPClient(threading.Thread):
     def configure(self, **kwargs):
         for k in ('url','uri_base','realm',
                   'agent','timeout','authmethods', 'authid',
-                  'auto_reconnect', 'sslopt', 'sockopt'):
+                  'auto_reconnect', 'sslopt', 'sockopt',
+                  'loop_timeout', 'heartbeat_timeout'):
             if k in kwargs:
                 setattr(self,k,kwargs[k])
 
@@ -301,7 +304,6 @@ class WAMPClient(threading.Thread):
         # Then rebind all the registrations and callbacks
         # if there's a need
         if details.details['authmethod'] != 'anonymous':
-            import logging;logging.error(details.details['authmethod'])
             self.heartbeat(ping_interval=1)
         to_register = self._registered_calls
         self._registered_calls = {}
@@ -599,7 +601,10 @@ class WAMPClient(threading.Thread):
                           reason="wamp.error.system_shutdown"
                         ))
         self._requests_pending = {}
+        self._last_ping_time = None
+        self._last_pong_time = None
         self.handle_disconnect()
+
 
     def shutdown(self):
         """ Request the system to shutdown the main loop and shutdown the system
@@ -654,13 +659,17 @@ class WAMPClient(threading.Thread):
             # Find out if we have any data pending from the
             # server
             try:
+                if self._last_pong_time:
+                    since_last_pong = time.time() - self._last_pong_time
+                else:
+                    since_last_pong = None
 
                 # If we've been asked to stop running the
                 # request loop. We'll just sit and wait
                 # till we get asked to run again
                 if self._state not in [STATE_AUTHENTICATING,STATE_WEBSOCKET_CONNECTED,STATE_CONNECTED]:
                     self._request_loop_notify_restart.acquire()
-                    self._request_loop_notify_restart.wait(self._loop_timeout)
+                    self._request_loop_notify_restart.wait(self.loop_timeout)
                     self._request_loop_notify_restart.release()
                     continue
 
@@ -671,15 +680,25 @@ class WAMPClient(threading.Thread):
                     self._state = STATE_DISCONNECTED
                     continue
 
+                if since_last_pong and since_last_pong > self.heartbeat_timeout:
+                    # If the last ping response happened too long
+                    # ago, consider it a websocket timeout and
+                    # handle disconnect.
+                        raise websocket.WebSocketConnectionClosedException("Maximum websocket response delay of %s secs exceeded.", self.loop_timeout)
+
                 # Okay, we think we're okay so let's try and read some data
                 opcode, data = self.ws.recv_data(control_frame=True)
                 if six.PY3 and opcode == websocket.ABNF.OPCODE_TEXT:
                     data = data.decode('utf-8')
+
                 if opcode == websocket.ABNF.OPCODE_PONG:
                     duration = time.time() - float(data)
                     self._last_pong_time = time.time()
+                    data = None
+                    opcode = None
                     logger.debug('Received websocket ping response in %s seconds', round(duration, 3))
                     continue
+                
                 if opcode not in (websocket.ABNF.OPCODE_TEXT, websocket.ABNF.OPCODE_BINARY):
                     continue
             except io.BlockingIOError:
@@ -687,7 +706,7 @@ class WAMPClient(threading.Thread):
             except websocket.WebSocketTimeoutException:
                 continue
             except websocket.WebSocketConnectionClosedException as ex:
-                logger.debug("WebSocketConnectionClosedException: Requesting disconnect:".format(ex))
+                logger.debug("WebSocket Exception. Requesting disconnect:".format(ex))
                 self.disconnect()
 
                 # If the server disconnected, let's try and reconnect
