@@ -85,3 +85,7 @@
 * Expose new kwarg loop_timeout to set ws socket timeout as well as main loop timeout values 
 * Stop using create_connection convenience function of websocket_client
 
+1.20190730 - Wed 24 Jul 2019 16:15:00 PDT
+* Introduce WAMPConnectionError exception type
+* Prevent GOODBYE messages being sent to callers on disconnect during call
+
