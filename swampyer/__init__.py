@@ -695,7 +695,7 @@ class WAMPClient(threading.Thread):
                     # If the last ping response happened too long
                     # ago, consider it a websocket timeout and
                     # handle disconnect.
-                        raise WAMPConnectionError("Maximum websocket response delay of %s secs exceeded.", self.loop_timeout)
+                        raise WAMPConnectionError("Maximum websocket response delay of %s secs exceeded.", self.heartbeat_timeout)
 
                 # Okay, we think we're okay so let's try and read some data
                 opcode, data = self.ws.recv_data(control_frame=True)
