@@ -28,8 +28,6 @@ SUBSCRIPTION_CALLBACK = 1
 class WAMPConnectionError(Exception):
     """
     """
-    def __init__(self, *args, **kwargs):
-        super(WAMPConnectionError, self).__init__(*args, **kwargs)
 
 class WampInvokeWrapper(threading.Thread):
     """ Used to put invoke requests on a separate thread
