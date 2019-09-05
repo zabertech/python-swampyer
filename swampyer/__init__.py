@@ -9,6 +9,7 @@ import six
 import ssl
 from six.moves import queue
 
+import socket
 import websocket
 from .messages import *
 from .utils import logger
@@ -107,7 +108,7 @@ class WAMPClient(threading.Thread):
     timeout = None
     sslopt = None
     sockopt = None
-    loop_timeout = 1
+    loop_timeout = 5
     heartbeat_timeout = 10
 
     auto_reconnect = True
@@ -714,7 +715,7 @@ class WAMPClient(threading.Thread):
                 continue
             except websocket.WebSocketTimeoutException:
                 continue
-            except (websocket.WebSocketConnectionClosedException, WAMPConnectionError) as ex:
+            except (websocket.WebSocketConnectionClosedException, WAMPConnectionError, socket.error) as ex:
                 logger.debug("WebSocket Exception. Requesting disconnect:".format(ex))
                 self._state = STATE_DISCONNECTED
                 self.stop_heartbeat()
@@ -750,7 +751,7 @@ class WAMPClient(threading.Thread):
                 except AttributeError as ex:
                     self.handle_unknown(message)
             except Exception as ex:
-                logger.error("ERROR in main loop: {}".format(ex))
+                logger.error("ERROR in main loop when receiving: {}".format(ex))
 
 class WAMPClientTicket(WAMPClient):
     username = None

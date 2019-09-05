@@ -89,3 +89,6 @@
 * Introduce WAMPConnectionError exception type
 * Prevent GOODBYE messages being sent to callers on disconnect during call
 
+1.20190905 - Thu  5 Sep 2019 14:22:43 PDT
+* Catch socket.error in main loop to handle winerror 10053, 10054
+
