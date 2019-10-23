@@ -698,8 +698,10 @@ class WAMPClient(threading.Thread):
 
                 # Okay, we think we're okay so let's try and read some data
                 opcode, data = self.ws.recv_data(control_frame=True)
-                if six.PY3 and opcode == websocket.ABNF.OPCODE_TEXT:
-                    data = data.decode('utf-8')
+                if opcode == websocket.ABNF.OPCODE_TEXT:
+                    # Try to decode the data as a utf-8 string. Replace any inconvertible characters
+                    # to the unicode `\uFFFD` character
+                    data = data.decode('utf-8', 'replace')
 
                 if opcode == websocket.ABNF.OPCODE_PONG:
                     duration = time.time() - float(data)
