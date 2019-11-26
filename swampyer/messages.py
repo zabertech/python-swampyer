@@ -39,7 +39,7 @@ MESSAGE_TYPES = dict(
     REGISTER     = [ CODE('code',64), ID('request_id'), DICT('details'), URI('procedure') ],
     REGISTERED   = [ CODE('code',65), ID('request_id'), ID('registration_id') ],
     UNREGISTER   = [ CODE('code',66), ID('request_id'), ID('registration_id') ],
-    UNREGISTERED = [ CODE('code',67), ID('request_id') ],
+    UNREGISTERED = [ CODE('code',67), ID('request_id'), DICT('details') ],
 
     INVOCATION   = [ CODE('code',68), ID('request_id'), ID('registration_id'), DICT('details'),
                       LIST('args',**OPT), DICT('kwargs',**OPT) ],
