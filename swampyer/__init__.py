@@ -26,10 +26,6 @@ REGISTERED_CALL_CALLBACK = 1
 SUBSCRIPTION_TOPIC = 0
 SUBSCRIPTION_CALLBACK = 1
 
-class WAMPConnectionError(Exception):
-    """
-    """
-
 class WampInvokeWrapper(threading.Thread):
     """ Used to put invoke requests on a separate thread
         so we can make WAMP requests while in a WAMP request
@@ -257,7 +253,7 @@ class WAMPClient(threading.Thread):
             try:
                 self.ws.ping(str(self._last_ping_time))
             except Exception as ex:
-                raise WAMPConnectionError("Ping failed: %s", ex)
+                raise ExWAMPConnectionError("Ping failed: %s", ex)
         self._stop_heartbeat = False
 
     def stop_heartbeat(self):
@@ -372,7 +368,7 @@ class WAMPClient(threading.Thread):
         """ Sends a RPC request to the WAMP server
         """
         if self._state == STATE_DISCONNECTED:
-            raise WAMPConnectionError("WAMP is currently disconnected!")
+            raise ExWAMPConnectionError("WAMP is currently disconnected!")
         options = {
             'disclose_me': True
         }
@@ -401,22 +397,22 @@ class WAMPClient(threading.Thread):
             for a response here. Just fire out a message
         """
         if self._state == STATE_DISCONNECTED:
-            raise WAMPConnectionError("WAMP is currently disconnected!")
+            raise ExWAMPConnectionError("WAMP is currently disconnected!")
         message = message.as_str()
         logger.debug("SND>: {}".format(message))
         if not self.ws:
-            raise WAMPConnectionError("WAMP is currently disconnected!")
+            raise ExWAMPConnectionError("WAMP is currently disconnected!")
         try:
             self.ws.send(message)
         except websocket.WebSocketConnectionClosedException:
-            raise WAMPConnectionError("WAMP is currently disconnected!")
+            raise ExWAMPConnectionError("WAMP is currently disconnected!")
 
     def send_and_await_response(self,request):
         """ Used by most things. Sends out a request then awaits a response
             keyed by the request_id
         """
         if self._state == STATE_DISCONNECTED:
-            raise WAMPConnectionError("WAMP is currently disconnected!")
+            raise ExWAMPConnectionError("WAMP is currently disconnected!")
         wait_queue = queue.Queue()
         request_id = request.request_id
         self._requests_pending[request_id] = wait_queue;
@@ -426,7 +422,7 @@ class WAMPClient(threading.Thread):
         except queue.Empty as ex:
             raise Exception("Did not receive a response!")
         if isinstance(res, GOODBYE):
-            raise WAMPConnectionError("WAMP is currently disconnected!")
+            raise ExWAMPConnectionError("WAMP is currently disconnected!")
         return res
 
     def dispatch_to_awaiting(self,result):
@@ -717,7 +713,7 @@ class WAMPClient(threading.Thread):
                     # If the last ping response happened too long
                     # ago, consider it a websocket timeout and
                     # handle disconnect.
-                        raise WAMPConnectionError("Maximum websocket response delay of %s secs exceeded.", self.heartbeat_timeout)
+                        raise ExWAMPConnectionError("Maximum websocket response delay of %s secs exceeded.", self.heartbeat_timeout)
 
                 # Okay, we think we're okay so let's try and read some data
                 opcode, data = self.ws.recv_data(control_frame=True)
@@ -740,7 +736,7 @@ class WAMPClient(threading.Thread):
                 continue
             except websocket.WebSocketTimeoutException:
                 continue
-            except (websocket.WebSocketConnectionClosedException, WAMPConnectionError, socket.error) as ex:
+            except (websocket.WebSocketConnectionClosedException, ExWAMPConnectionError, socket.error) as ex:
                 logger.debug("WebSocket Exception. Requesting disconnect:".format(ex))
                 self._state = STATE_DISCONNECTED
                 self.stop_heartbeat()

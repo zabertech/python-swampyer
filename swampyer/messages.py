@@ -97,7 +97,7 @@ class WampMessage(object):
 
     def unpackage(self,data):
         if len(data) > len(self._fields):
-            raise Exception("Data has too many fields for this record type '{}' with {}".format(self.code_name,data))
+            raise ExMessageCorrupt("Data has too many fields for this record type '{}' with {}".format(self.code_name,data))
         for i in range(len(data)):
             field = self._fields[i]
             value = data[i]
