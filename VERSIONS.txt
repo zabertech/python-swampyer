@@ -92,3 +92,6 @@
 1.20190905 - Thu  5 Sep 2019 14:22:43 PDT
 * Catch socket.error in main loop to handle winerror 10053, 10054
 
+1.20200709 - Thu Jul  9 17:53:37 PDT 2020
+* Add .get and .set to messages
+* Add .gitignore
