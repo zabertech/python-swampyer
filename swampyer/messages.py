@@ -123,6 +123,20 @@ class WampMessage(object):
     def as_str(self):
         return json.dumps(self.package(), cls=WampJSONEncoder)
 
+    def get(self, k, default=None):
+        """ Works like dict's get. Seeks out the attribute value and
+            return if found, if not, returns none
+        """
+        try:
+            return self[k]
+        except AttributeError:
+            return default
+
+    def set(self, k, v):
+        """ Works like dict's set. An attribute to the provided value
+        """
+        self[k] = v 
+
     def __getitem__(self,k):
         return getattr(self,k)
 
