@@ -10,6 +10,7 @@
 # `Pipfile.lock` and then regenerate `requirements*.txt`.
 ################################################################################
 
-certifi
-six
-websocket-client
+crossbar
+pipenv-to-requirements
+pytest
+tox

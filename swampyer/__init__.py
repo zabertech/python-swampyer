@@ -6,25 +6,16 @@ import json
 import time
 import threading
 import six
-import ssl
 from six.moves import queue
 
 import socket
 import websocket
+
+from .common import *
 from .messages import *
 from .utils import logger
 from .exceptions import *
-
-STATE_DISCONNECTED = 0
-STATE_CONNECTING = 1
-STATE_WEBSOCKET_CONNECTED = 3
-STATE_AUTHENTICATING = 4
-STATE_CONNECTED = 2
-
-REGISTERED_CALL_URI = 0
-REGISTERED_CALL_CALLBACK = 1
-SUBSCRIPTION_TOPIC = 0
-SUBSCRIPTION_CALLBACK = 1
+from .connection import *
 
 class WampInvokeWrapper(threading.Thread):
     """ Used to put invoke requests on a separate thread
@@ -179,59 +170,14 @@ class WAMPClient(threading.Thread):
         self._state = STATE_CONNECTING
         logger.debug("About to connect to {}".format(self.url))
 
-        m = re.search('(ws+)://([\w\.]+)(:?:(\d+))?',self.url)
+        options.setdefault('auto_reconnect',self.auto_reconnect)
+        options.setdefault('sslopt',self.sslopt)
+        options.setdefault('loop_timeout',self.loop_timeout)
+        self.socket = get_socket_connection(
+                      self.url,
+                      **options)
 
-        options['subprotocols'] = ['wamp.2.json']
-
-        # Handle the weird issue in websocket that the origin
-        # port will be always http://host:port even though connection is
-        # wss. This causes some origin issues with demo.crossbar.io demo
-        # so we ensure we use http or https appropriately depending on the
-        # ws or wss protocol
-        if m and m.group(1).lower() == 'wss':
-            origin_port = ':'+m.group(4) if m.group(4) else ''
-            options['origin'] = 'https://{}{}'.format(m.group(2),origin_port)
-
-        # Attempt connection once unless it's autoreconnect in which
-        # case we try and try again...
-        while True:
-            try:
-                if self.sslopt:
-                    options.setdefault('sslopt',self.sslopt)
-
-                # By default if no settings are chosen we apply
-                # the looser traditional policy (makes life less
-                # secure but less excruciating on windows)
-                if options.get("sslopt") is None:
-                    options["sslopt"] = {
-                        "cert_reqs":ssl.CERT_NONE,
-                        "check_hostname": False
-                    }
-
-                if self.sockopt:
-                    options.setdefault('sockopt',self.sockopt)
-
-                self.ws = websocket.WebSocket(fire_cont_frame=options.pop("fire_cont_frame", False),
-                                    skip_utf8_validation=options.pop("skip_utf8_validation", False),
-                                    enable_multithread=True,
-                                    **options)
-                self.ws.settimeout(self.loop_timeout)
-                self.ws.connect(self.url, **options)
-                self.handle_connect()
-            except Exception as ex:
-                if self.auto_reconnect:
-                    logger.debug(
-                        "Error connecting to {url}. Reconnection attempt in {retry} second(s). {err}".format(
-                            url=self.url,
-                            retry=self.auto_reconnect,
-                            err=ex
-                        )
-                    )
-                    time.sleep(self.auto_reconnect)
-                    continue
-                else:
-                    raise
-            break
+        self.handle_connect()
 
         logger.debug("Connected to {}".format(self.url))
         if not soft_reset:
@@ -245,13 +191,14 @@ class WAMPClient(threading.Thread):
         self._request_loop_notify_restart.notify()
         self._request_loop_notify_restart.release()
 
+
     def start_heartbeat(self, event):
         self._last_ping_time = None
         self._last_pong_time = None
         while not event.wait(self.ping_interval) and not self._stop_heartbeat:
             self._last_ping_time = time.time()
             try:
-                self.ws.ping(str(self._last_ping_time))
+                self.socket.ping(str(self._last_ping_time))
             except Exception as ex:
                 raise ExWAMPConnectionError("Ping failed: %s", ex)
         self._stop_heartbeat = False
@@ -400,10 +347,10 @@ class WAMPClient(threading.Thread):
             raise ExWAMPConnectionError("WAMP is currently disconnected!")
         message = message.as_str()
         logger.debug("SND>: {}".format(message))
-        if not self.ws:
+        if not self.socket:
             raise ExWAMPConnectionError("WAMP is currently disconnected!")
         try:
-            self.ws.send(message)
+            self.socket.send(message)
         except websocket.WebSocketConnectionClosedException:
             raise ExWAMPConnectionError("WAMP is currently disconnected!")
 
@@ -576,7 +523,7 @@ class WAMPClient(threading.Thread):
         logger.debug("Disconnecting")
 
         # Close off the websocket
-        if self.ws:
+        if self.socket:
             try:
                 if self._state == STATE_CONNECTED:
                     self.handle_leave()
@@ -587,12 +534,13 @@ class WAMPClient(threading.Thread):
                         ))
                 logger.debug("Closing Websocket")
                 try:
-                    self.ws.close()
+                    self.socket.close()
                 except Exception as ex:
                     logger.debug("Could not close websocket connection because: {}".format(ex))
             except Exception as ex:
                 logger.debug("Could not send Goodbye message because {}".format(ex))
                 pass # FIXME: Maybe do better handling here
+            self.socket = None
             self.ws = None
 
         # Cleanup the state variables. By settings this
@@ -704,7 +652,7 @@ class WAMPClient(threading.Thread):
 
                 # If we don't have a websocket defined.
                 # we don't go further either
-                elif not self.ws:
+                elif not self.socket:
                     logger.debug("No longer have a websocket. Marking disconnected")
                     self._state = STATE_DISCONNECTED
                     continue
@@ -716,7 +664,7 @@ class WAMPClient(threading.Thread):
                         raise ExWAMPConnectionError("Maximum websocket response delay of %s secs exceeded.", self.heartbeat_timeout)
 
                 # Okay, we think we're okay so let's try and read some data
-                opcode, data = self.ws.recv_data(control_frame=True)
+                opcode, data = self.socket.recv_data(control_frame=True)
                 if opcode == websocket.ABNF.OPCODE_TEXT:
                     # Try to decode the data as a utf-8 string. Replace any inconvertible characters
                     # to the unicode `\uFFFD` character
