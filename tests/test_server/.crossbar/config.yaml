@@ -35,6 +35,21 @@ workers:
   transports:
   - type: rawsocket
     endpoint:
+      type: unix
+      path: "/tmp/test-nexus.socket"
+    options:
+      max_message_size: 1048576
+    serializers:
+    - cbor
+    - msgpack
+    - json
+    auth:
+      ticket:
+        authenticator: swampyer.test.authenticator.ticket
+        type: dynamic
+
+  - type: rawsocket
+    endpoint:
       type: tcp
       interface: "127.0.0.1"
       port: 18081

@@ -5,6 +5,7 @@ import io
 import json
 import time
 import threading
+import traceback
 import six
 from six.moves import queue
 
@@ -15,7 +16,7 @@ from .common import *
 from .messages import *
 from .utils import logger
 from .exceptions import *
-from .connection import *
+from .transport import *
 
 class WampInvokeWrapper(threading.Thread):
     """ Used to put invoke requests on a separate thread
@@ -664,6 +665,10 @@ class WAMPClient(threading.Thread):
                         raise ExWAMPConnectionError("Maximum websocket response delay of %s secs exceeded.", self.heartbeat_timeout)
 
                 # Okay, we think we're okay so let's try and read some data
+                data = self.socket.next()
+                if not data: continue
+
+                """
                 opcode, data = self.socket.recv_data(control_frame=True)
                 if opcode == websocket.ABNF.OPCODE_TEXT:
                     # Try to decode the data as a utf-8 string. Replace any inconvertible characters
@@ -680,6 +685,8 @@ class WAMPClient(threading.Thread):
                 
                 if opcode not in (websocket.ABNF.OPCODE_TEXT, websocket.ABNF.OPCODE_BINARY):
                     continue
+                """
+
             except io.BlockingIOError:
                 continue
             except websocket.WebSocketTimeoutException:
@@ -705,7 +712,12 @@ class WAMPClient(threading.Thread):
                     time.sleep(1)
                     if not data: continue
             except Exception as ex:
-                logger.error("ERROR in main loop: {}".format(ex))
+                logger.error(
+                    "ERROR in main loop: {ex}\n{traceback}".format(
+                        ex=ex,
+                        traceback=traceback.format_exc(),
+                    )
+                  )
                 continue
 
             try:

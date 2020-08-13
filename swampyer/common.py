@@ -10,4 +10,17 @@ REGISTERED_CALL_CALLBACK = 1
 SUBSCRIPTION_TOPIC = 0
 SUBSCRIPTION_CALLBACK = 1
 
+RAWSOCKET_SERIALIZER_JSON = 1
+RAWSOCKET_SERIALIZER_MESSAGEPACK = 1
 
+RAWSOCKET_HANDSHAKE_ERRORS = {
+    0: 'illegal (must not be used)',
+    1: 'serializer unsupported',
+    2: 'maximum message length unacceptable',
+    3: 'use of reserved bits (unsupported feature)',
+    4: 'maximum connection count reached',
+}
+
+RAWSOCKET_MESSAGE_TYPE_REGULAR = 0
+RAWSOCKET_MESSAGE_TYPE_PING = 1
+RAWSOCKET_MESSAGE_TYPE_PONG = 2

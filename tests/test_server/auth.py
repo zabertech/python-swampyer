@@ -35,7 +35,6 @@ class Authenticator(ApplicationSession):
                 f.write(self.rand_pass)
         print("New password is '{}'".format(self.rand_pass))
         
-
         # Hook up the authentication service
         try:
             print("REGISTERING: {}!".format(AUTH_URI))
