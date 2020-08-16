@@ -43,6 +43,11 @@ class Authenticator(ApplicationSession):
                     AUTH_URI,
                     options=RegisterOptions(details_arg='details')
                   )
+
+            yield self.register(
+                      self.create_otp,
+                      '',
+                  )
         except Exception as ex:
             print(ex)
 
@@ -60,5 +65,4 @@ class Authenticator(ApplicationSession):
             raise ApplicationError(AUTH_URI, "Could not authenticate session. Password did not match.")
         except Exception as ex:
             raise ApplicationError('Invalid Login')
-
 

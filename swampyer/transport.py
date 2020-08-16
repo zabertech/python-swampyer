@@ -284,8 +284,6 @@ class RawsocketTransport(Transport):
         message_preamble = struct.unpack('!B',self.socket.recv(1))[0]
         message_contents = self.socket.recv(3)
 
-        print("message preamble", message_preamble, type(message_preamble))
-        print("message contents", message_contents)
         magic = message_preamble & 0b11111000
         if magic != 0:
             raise ExMessageCorrupt("Received unexpected bits in message preamble")
@@ -314,36 +312,8 @@ class RawsocketTransport(Transport):
     def next(self):
         """ Returns the next  buffer element
         """
-        message_preamble = struct.unpack('!B',self.socket.recv(1))[0]
-        message_contents = self.socket.recv(3)
-
-        print("message preamble", message_preamble, type(message_preamble))
-        print("message contents", message_contents)
-        magic = message_preamble & 0b11111000
-        if magic != 0:
-            raise ExMessageCorrupt("Received unexpected bits in message preamble")
-
-        # The last three bits of the preamble determine the message
-        # type
-        # 0: regular WAMP message
-        # 1: PING
-        # 2: PONG
-        # 3-7: reserved
-        message_type = message_preamble & 0b00000111
-
-        # If it's a regular message, the next 3 bytes denote the length of the upcoming
-        # serialized data
-        if message_type == RAWSOCKET_MESSAGE_TYPE_REGULAR:
-            message_length = struct.unpack('!I', message_contents + b'\0')[0]
-            message_payload = self.socket.recv(message_length)
-            return self.serializer.loads(message_payload)
-
-        elif message_type == RAWSOCKET_MESSAGE_TYPE_PING:
-            raise NotImplementedError("Message type of PING not yet handled")
-
-        elif message_type == RAWSOCKET_MESSAGE_TYPE_PONG:
-            raise NotImplementedError("Message type of PONG not yet handled")
-
+        message_payload = self.recv_data()
+        return self.serializer.loads(message_payload)
 
 class UnixsocketTransport(RawsocketTransport):
 

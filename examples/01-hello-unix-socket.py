@@ -10,6 +10,9 @@ here:
 
 - https://crossbar.io/docs/RawSocket-Transport/?highlight=transport#connecting-transports
 - https://crossbar.io/docs/Transport-Endpoints/#unix-domain-connecting-endpoints
+
+See the tests/test_server/.crossbar/config.yaml file for an example
+configuration for the crossbar server.
 """
 
 from __future__ import print_function
