@@ -15,9 +15,13 @@ setup(name='swampyer',
       test_suite='tests',
       extras_requires={
           'dev': ["crossbar"],
+          'cbor': ["cbor"],
+          'msgpack': ["msgpack"],
+          'all': ["cbor","msgpack"],
       },
       install_requires=[
           'websocket-client',
+          'certifi',
           'six',
           'setuptools',
       ],
