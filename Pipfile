@@ -9,6 +9,8 @@ tox = "*"
 pipenv-to-requirements = "*"
 crossbar = "*"
 twine = "*"
+cbor = "*"
+msgpack = "*"
 
 [packages]
 certifi = "*"

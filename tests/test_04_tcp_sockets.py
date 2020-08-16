@@ -17,8 +17,8 @@ def hello(event,data):
     return data
 
 def test_connection():
-    client = connect_service()
-    client2 = connect_service()
+    client = connect_service('tcpip://localhost:18081')
+    client2 = connect_service('tcpip://localhost:18081')
 
     # Check if we can register
     reg_result = client.register('com.izaber.wamp.hello', hello)
@@ -60,11 +60,8 @@ def test_connection():
     unsub_result = client.unsubscribe(sub_result.subscription_id)
     assert unsub_result == swampyer.WAMP_UNSUBSCRIBED
 
-
     # Then shutdown
-    print("SHUTTING DOWN!1")
     client.shutdown()
-    print("SHUTTING DOWN!2")
     client2.shutdown()
 
 

@@ -13,23 +13,12 @@ import swampyer
 # being exchanged
 logging.basicConfig(stream=sys.stdout, level=1)
 
-def connect_service():
-    client = swampyer.WAMPClientTicket(
-                    url="unix:///tmp/test-nexus.socket",
-                    username="test",
-                    password=get_password(),
-                    realm="realm1",
-                    uri_base="",
-                ).start()
-    return client
-
-
 def hello(event,data):
     return data
 
 def test_connection():
-    client = connect_service()
-    client2 = connect_service()
+    client = connect_service('unix:///tmp/test-nexus.socket')
+    client2 = connect_service('unix:///tmp/test-nexus.socket')
 
     # Check if we can register
     reg_result = client.register('com.izaber.wamp.hello', hello)
@@ -39,6 +28,10 @@ def test_connection():
     # Can we call data?
     call_result = client2.call('com.izaber.wamp.hello','something')
     assert call_result == 'something'
+
+    # Let's unregister then
+    unreg_result = client.unregister(reg_result.registration_id)
+    assert unreg_result == swampyer.WAMP_UNREGISTERED
 
     # Can we subscribe?
     sub_data = {'data':None}
@@ -60,11 +53,14 @@ def test_connection():
     assert pub_result == swampyer.WAMP_PUBLISHED
 
     # And check that we received the data
-    time.sleep(0.1)
+    time.sleep(0.3)
     assert sub_data['data'] == 'Hej!'
 
-    # Then shutdown
+    # Unsubscribe
+    unsub_result = client.unsubscribe(sub_result.subscription_id)
+    assert unsub_result == swampyer.WAMP_UNSUBSCRIBED
 
+    # Then shutdown
     client.shutdown()
     client2.shutdown()
 

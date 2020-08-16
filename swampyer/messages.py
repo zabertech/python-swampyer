@@ -1,10 +1,11 @@
 
 import sys
-import json
 import six
 import decimal
+import traceback
 
 from .fields import *
+from .serializers import *
 
 OPT = {'required': False}
 
@@ -50,23 +51,13 @@ MESSAGE_TYPES = dict(
 MESSAGE_CLASS_LOOKUP = {}
 MESSAGE_NAME_LOOKUP = {}
 
-class WampJSONEncoder(json.JSONEncoder):
-    """ To handle types not typically handled by JSON
-
-        This currently just handles Decimal values and turns them
-        into floats. A bit nasty but lets us continue with work
-        without making nasty customizations to WAMP JSON
-    """
-    def default(self, obj):
-        if isinstance(obj, decimal.Decimal):
-            return float(obj)
-        return json.JSONEncoder.default(self, obj)
-
 class WampMessage(object):
     _fields = []     # autoset
     code_name = None # autoset
+    serializer = None # autoset
 
     def __init__(self,**kwargs):
+        self.serializer = kwargs.pop('serializer',load_serializer('json'))
         for field in self._fields:
             name = field.name
             setattr(
@@ -89,7 +80,9 @@ class WampMessage(object):
     @staticmethod
     def loads(data_str):
         # First column in list is always WAMP type code
-        data = json.loads(data_str)
+        print("WampMessage.loads is a deprecated method. Please use transport.serializer instead")
+        traceback.print_stack()
+        data = self.serializer.loads(data_str)
         if not data: return
         message_code = data[0]
         message_class = MESSAGE_CLASS_LOOKUP[message_code]
@@ -111,7 +104,7 @@ class WampMessage(object):
         return record
 
     def dump(self):
-        s = u"JSON({})={}".format(self.code_name,self.as_str())
+        s = u"JSON({})={}".format(self.code_name,self)
         s += u"\n--[{}]----------------------------\n".format(self.code_name)
         for field in self._fields:
             s += u'{}: {}\n'.format(
@@ -121,7 +114,9 @@ class WampMessage(object):
         return s
 
     def as_str(self):
-        return json.dumps(self.package(), cls=WampJSONEncoder)
+        print("WampMessage.as_str is a deprecated method. Please use transport.serializer instead")
+        traceback.print_stack()
+        return self.serializer.dumps(self.package())
 
     def get(self, k, default=None):
         """ Works like dict's get. Seeks out the attribute value and
@@ -144,7 +139,7 @@ class WampMessage(object):
         return setattr(self,k,v)
 
     def __str__(self):
-        return self.as_str()
+        return self.serializer.dumps(self.package())
 
     def __eq__(self,other):
         if isinstance(other,six.integer_types):

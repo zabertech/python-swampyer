@@ -60,6 +60,12 @@ workers:
     - cbor
     - msgpack
     - json
+    auth:
+      ticket:
+        authenticator: swampyer.test.authenticator.ticket
+        type: dynamic
+
+
   - type: web
     endpoint:
       type: tcp

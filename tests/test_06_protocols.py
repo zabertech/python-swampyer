@@ -12,7 +12,10 @@ import swampyer
 logging.basicConfig(stream=sys.stdout, level=1)
 
 def test_connection():
-    connect_service()
+    print("Check CBOR")
+    connect_service(serializer_code='cbor')
+    print("Check MSGPACK")
+    connect_service(serializer_code='msgpack')
 
 if __name__ == '__main__':
-    print(connect_service())
+    print(test_connection())

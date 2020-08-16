@@ -1,3 +1,4 @@
+import io
 import os
 import re
 import ssl
@@ -10,15 +11,24 @@ import websocket
 import traceback
 
 from .common import *
+from .messages import *
 from .utils import logger
 from .exceptions import *
+from .serializers import *
 
-class Connection(object):
-    def __init__(self, url, **options):
+class Transport(object):
+    def __init__(self, url, serializers=None, **options):
         self.url = url
         self.socket = None
+        if not serializers:
+            serializers = available_serializers()
+        self.serializers = serializers
+        self.init(**options)
 
-    def connect(self, url, **options):
+    def init(self, **options):
+        pass
+
+    def connect(self, **options):
         raise ExNotImplemented("connect is not implemented")
 
     def settimeout(self, timeout):
@@ -36,57 +46,68 @@ class Connection(object):
     def recv_data(self, control_frame=True):
         raise ExNotImplemented("recv_data is not implemented")
 
-class WebsocketConnection(Connection):
+    def next(self):
+        raise ExNotImplemented("next is not implemented")
 
-    def connect( self, **options ):
+class WebsocketTransport(Transport):
 
-        options['subprotocols'] = ['wamp.2.json']
+    loop_timeout = 1
+    protocol = 'ws'
+    ssl_origin =None
+    sslopt = None
+    subprotocols = None
+    fire_cont_frame = False
+    skip_utf8_validation = False
+
+    def init(self, **options):
+
+        self.subprotocols = []
+        for serializer_code in self.serializers:
+            self.subprotocols.append('wamp.2.{}'.format(serializer_code))
+
         m = re.search(r'(ws|wss)://([\w\.]+)(:?:(\d+))?',self.url)
+        if not m:
+            raise ExTransportParseError('Require ws://path or wss:// syntax for Websocket')
+        self.protocol = m.group(1).lower()
 
-        auto_reconnect = options.get('auto_reconnect',1)
+        if self.protocol == 'wss':
+            origin_port = ':'+m.group(4) if m.group(4) else ''
+            self.ssl_origin = 'https://{}{}'.format(m.group(2),origin_port)
 
+        # By default if no settings are chosen we apply
+        # the looser traditional policy (makes life less
+        # secure but less excruciating on windows)
+        self.sslopt = options.get('sslopt', {
+                "cert_reqs":ssl.CERT_NONE,
+                "check_hostname": False
+            })
+
+        self.loop_timeout = options.get('loop_timeout')
+        self.fire_cont_frame = options.get('fire_cont_frame',False)
+        self.skip_utf8_validation = options.get('skip_utf8_validation',False)
+
+    def connect(self, **options):
         # Handle the weird issue in websocket that the origin
         # port will be always http://host:port even though connection is
         # wss. This causes some origin issues with demo.crossbar.io demo
         # so we ensure we use http or https appropriately depending on the
         # ws or wss protocol
-        if m and m.group(1).lower() == 'wss':
-            origin_port = ':'+m.group(4) if m.group(4) else ''
-            options['origin'] = 'https://{}{}'.format(m.group(2),origin_port)
 
-        # Attempt connection once unless it's autoreconnect in which
-        # case we try and try again...
-        while True:
-            try:
-                # By default if no settings are chosen we apply
-                # the looser traditional policy (makes life less
-                # secure but less excruciating on windows)
-                if options.get("sslopt") is None:
-                    options["sslopt"] = {
-                        "cert_reqs":ssl.CERT_NONE,
-                        "check_hostname": False
-                    }
+        options.setdefault('sslopt',self.sslopt)
+        options.setdefault('subprotocols',self.subprotocols)
 
-                self.socket = websocket.WebSocket(fire_cont_frame=options.pop("fire_cont_frame", False),
-                                    skip_utf8_validation=options.pop("skip_utf8_validation", False),
-                                    enable_multithread=True,
-                                    **options)
-                self.socket.settimeout(options['loop_timeout'])
-                self.socket.connect(self.url, **options)
-            except Exception as ex:
-                if auto_reconnect:
-                    logger.debug(
-                        "Error connecting to {url}. Reconnection attempt in {retry} second(s). {err}".format(
-                            url=self.url,
-                            retry=auto_reconnect,
-                            err=ex
-                        )
-                    )
-                    time.sleep(auto_reconnect)
-                    continue
-                else:
-                    raise
-            break
+        self.socket = websocket.WebSocket(
+                            fire_cont_frame=options.pop(
+                                  "fire_cont_frame", self.fire_cont_frame),
+                            skip_utf8_validation=options.pop(
+                                  "skip_utf8_validation", self.skip_utf8_validation),
+                            enable_multithread=True,
+                            **options)
+        self.socket.settimeout(options.get('loop_timeout',self.loop_timeout))
+        self.socket.connect(self.url, **options)
+
+        serializer_code = self.socket.subprotocol[len('wamp.2.'):]
+        self.serializer = load_serializer(serializer_code)
 
     def settimeout(self, timeout):
         return self.socket.settimeout(timeout)
@@ -95,7 +116,17 @@ class WebsocketConnection(Connection):
         return self.socket.ping(last_ping_time)
 
     def send(self, payload):
-        return self.socket.send(payload)
+        try:
+            if isinstance(payload, WampMessage):
+                payload = self.serializer.dumps(payload.package())
+            if self.serializer.binary:
+                self.socket.send_binary(payload)
+            else:
+                if isinstance(payload, (bytes, bytearray)):
+                    payload = payload.encode('utf8')
+                self.socket.send(payload)
+        except websocket.WebSocketConnectionClosedException:
+            raise ExWAMPConnectionError("WAMP is currently disconnected!")
 
     def close(self):
         return self.socket.close()
@@ -107,13 +138,16 @@ class WebsocketConnection(Connection):
         """ Returns the next  buffer element
         """
         try:
-            # Okay, we think we're okay so let's try and read some data
             opcode, data = self.socket.recv_data(control_frame=True)
+
             if opcode == websocket.ABNF.OPCODE_TEXT:
                 # Try to decode the data as a utf-8 string. Replace any inconvertible characters
                 # to the unicode `\uFFFD` character
                 data = data.decode('utf-8', 'replace')
-                return data
+                return self.serializer.loads(data)
+
+            if opcode == websocket.ABNF.OPCODE_BINARY:
+                return self.serializer.loads(data)
 
             if opcode == websocket.ABNF.OPCODE_PONG:
                 duration = time.time() - float(data)
@@ -129,81 +163,27 @@ class WebsocketConnection(Connection):
             return
         except websocket.WebSocketTimeoutException:
             return
+        except websocket.WebSocketConnectionClosedException as ex:
+            raise ExWAMPConnectionError(ex)
+        except (ExWAMPConnectionError, socket.error) as ex:
+            raise 
 
 
-class RawsocketConnection(Connection):
-    def connect( self, url, **options ):
-        options['subprotocols'] = ['wamp.2.json']
-        m = re.search(r'tcpip://([\w\.]+):(\d+)',self.url)
-        if not m:
-            raise ExWAMPConnectionError('Require tcpip://path syntax for Rawsocket Connection')
-
-        # Check if the path exists and is a socket
-        socket_path = m.group(1)
-        if not os.path.exists(socket_path):
-            raise ExWAMPConnectionError('Unix Socket {} does not exist'.format(socket_path))
-        socket_mode = os.stat(socket_path).st_mode
-        if not stat.S_ISSOCK(mode):
-            raise ExWAMPConnectionError('Path {} is not a socket!'.format(socket_path))
-
-        auto_reconnect = options.get('auto_reconnect',1)
-
-        # Attempt connection once unless it's autoreconnect in which
-        # case we try and try again...
-        while True:
-            try:
-                # TODO: Look into SOCK_DGRAM
-                sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-                sock.connect( socket_path )
-                self.socket = sock
-            except Exception as ex:
-                if auto_reconnect:
-                    logger.debug(
-                        "Error connecting to {url}. Reconnection attempt in {retry} second(s). {err}".format(
-                            url=self.url,
-                            retry=auto_reconnect,
-                            err=ex
-                        )
-                    )
-                    time.sleep(auto_reconnect)
-                    continue
-                else:
-                    raise
-            break
-
-    def settimeout(self, timeout):
-        return self.socket.settimeout(timeout)
-
-    def ping(self, last_ping_time):
-        # Unix sockets do not need a ping
-        return True
-
-    def send(self, payload):
-        return self.socket.send(payload)
-
-    def close(self):
-        return self.socket.close()
-
-    def recv_data(self, control_frame=True):
-        return self.socket.recv_data(control_frame)
-
-class RawsocketConnection(Connection):
+class RawsocketTransport(Transport):
     """
     Raw Socket transport is detailed here:
 
     https://github.com/wamp-proto/wamp-proto/blob/master/rfc/text/advanced/ap_transport_rawsocket.md
     """
 
-    def connect( self, **options ):
-        pass
-
-class UnixsocketConnection(RawsocketConnection):
-
     buffer_size = 0xf
     serializer = RAWSOCKET_SERIALIZER_JSON
     server_buffer_size = 0
 
-    def perform_handshake(self):
+    def create_socket(self, *args, **kwargs):
+        raise ExNotImplementedError('create_socket has not been implemented')
+
+    def perform_handshake(self,serializer_code):
         """ Negotiates the serialization format 
         """
 
@@ -224,14 +204,17 @@ class UnixsocketConnection(RawsocketConnection):
         #               1: JSON
         #               2: MessagePack
         #               3 - 15: Reserved
+        try:
+            serializer = SERIALIZERS.index(serializer_code) + 1
+        except ValueError:
+            raise ExWAMPConnectionError("Unknown serializer '{}' requested".format(serializer_code))
         client_handshake = struct.pack(
                                 '!BBBB',
                                 0x7f,
-                                self.buffer_size << 4 | self.serializer,
+                                self.buffer_size << 4 | serializer,
                                 0, 0 # Reserved
                             )
 
-        type(client_handshake)
         self.socket.send(client_handshake)
 
 				# Server will then respond with 4 bytes
@@ -249,58 +232,28 @@ class UnixsocketConnection(RawsocketConnection):
             raise ExWAMPConnectionError(RAWSOCKET_HANDSHAKE_ERRORS[server_buffer_size])
 
         # Otherwise, we're still good and can parse things out
-        if server_serializer != self.serializer:
+        if server_serializer != serializer:
             raise ExWAMPConnectionError(
                 "Server didn't want to use the same serializer! Got '{server_serializer}' but expected '{serializer}'".format(
                     server_serializer=server_serializer,
                     serializer=self.serializer,
                 ))
+
+        # Serializer okay'd so let's use it
+        self.serializer = load_serializer(serializer_code)
+
         self.server_buffer_size = 2**(9+server_buffer_size)
 
         # And skip the reserved bytes
         server_reserved = self.socket.recv(2)
 
-    def connect( self, **options ):
-        options['subprotocols'] = ['wamp.2.json']
-        m = re.search(r'unix://(.*)',self.url)
-        if not m:
-            raise ExWAMPConnectionError('Require unix://path syntax for UnixsocketConnections')
+        return True
 
-        # Check if the path exists and is a socket
-        socket_path = m.group(1)
-        if not os.path.exists(socket_path):
-            raise ExWAMPConnectionError("Unix Socket '{}' does not exist".format(socket_path))
-        socket_mode = os.stat(socket_path).st_mode
-        if not stat.S_ISSOCK(socket_mode):
-            raise ExWAMPConnectionError("Path '{}' is not a socket!".format(socket_path))
-
-        auto_reconnect = options.get('auto_reconnect',1)
-
-        # Attempt connection once unless it's autoreconnect in which
-        # case we try and try again...
-        while True:
-            try:
-                # TODO: Look into SOCK_DGRAM
-                sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-                sock.connect(socket_path)
-                self.socket = sock
-                self.perform_handshake()
-
-            except Exception as ex:
-                if auto_reconnect:
-                    logger.debug(
-                        "Error connecting to {url}. Reconnection attempt in {retry} second(s). {err}.\n{traceback}".format(
-                            url=self.url,
-                            retry=auto_reconnect,
-                            err=ex,
-                            traceback=traceback.format_exc(),
-                        )
-                    )
-                    time.sleep(auto_reconnect)
-                    continue
-                else:
-                    raise
-            break
+    def connect(self, **options):
+        self.socket = self.create_socket()
+        for serializer_code in self.serializers:
+            if self.perform_handshake(serializer_code):
+                break
 
     def settimeout(self, timeout):
         return self.socket.settimeout(timeout)
@@ -310,7 +263,10 @@ class UnixsocketConnection(RawsocketConnection):
         return True
 
     def send(self, payload):
-        if not isinstance(payload, bytearray):
+        if isinstance(payload, WampMessage):
+            payload = self.serializer.dumps(payload.package())
+
+        if not isinstance(payload, (bytes, bytearray)):
             payload = payload.encode('utf8')
 
         header = struct.pack('!B',0)
@@ -380,7 +336,7 @@ class UnixsocketConnection(RawsocketConnection):
         if message_type == RAWSOCKET_MESSAGE_TYPE_REGULAR:
             message_length = struct.unpack('!I', message_contents + b'\0')[0]
             message_payload = self.socket.recv(message_length)
-            return message_payload
+            return self.serializer.loads(message_payload)
 
         elif message_type == RAWSOCKET_MESSAGE_TYPE_PING:
             raise NotImplementedError("Message type of PING not yet handled")
@@ -389,21 +345,72 @@ class UnixsocketConnection(RawsocketConnection):
             raise NotImplementedError("Message type of PONG not yet handled")
 
 
-def get_socket_connection(url, **options):
+class UnixsocketTransport(RawsocketTransport):
+
+    buffer_size = 0xf
+    serializer = RAWSOCKET_SERIALIZER_JSON
+    server_buffer_size = 0
+    socket_path = None
+
+    def init(self, **options):
+        m = re.search(r'unix://(.*)',self.url)
+        if not m:
+            raise ExTransportParseError('Require unix://path syntax for UnixsocketConnections')
+
+        # Check if the path exists and is a socket
+        socket_path = m.group(1)
+        if not os.path.exists(socket_path):
+            raise ExWAMPConnectionError("Unix Socket '{}' does not exist".format(socket_path))
+        socket_mode = os.stat(socket_path).st_mode
+        if not stat.S_ISSOCK(socket_mode):
+            raise ExWAMPConnectionError("Path '{}' is not a socket!".format(socket_path))
+        self.socket_path = socket_path
+
+    def create_socket(self):
+        # TODO: Look into SOCK_DGRAM
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        sock.connect(self.socket_path)
+        return sock
+
+
+class TcpipsocketTransport(RawsocketTransport):
+    socket_path = None
+    host = None
+    port = None
+
+
+    def init(self, **options):
+        m = re.search(r'tcpip://([\w\.]+):(\d+)',self.url)
+        if not m:
+            raise ExTransportParseError('Require tcpip://host:port syntax for Rawsocket Connection')
+        self.host = m.group(1)
+        self.port = int(m.group(2))
+
+    def create_socket(self):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect((self.host, self.port))
+        return sock
+
+
+
+def get_transport(url, **options):
     ( protocol, junk ) = url.lower().split(':',1)
-    #m = re.search(r'(ws|wss|tcpip|unix).*',url)
     if not protocol:
         raise ExWAMPConnectionError("Unknown protocol for URL: '{}'".format(protocol))
 
     if protocol in('ws','wss'):
-        socket = WebsocketConnection(url)
-        socket.connect(**options)
+        socket = WebsocketTransport(url,**options)
         return socket
 
     elif protocol in('unix'):
-        socket = UnixsocketConnection(url)
-        socket.connect(**options)
+        socket = UnixsocketTransport(url,**options)
+        return socket
+
+    elif protocol in('tcpip'):
+        socket = TcpipsocketTransport(url,**options)
         return socket
 
     else:
-        raise ExWAMPConnectionError("Unknown URL format {}. Must be ws://, wss://, or unix://".format(url))
+        raise ExWAMPConnectionError(  
+                "Unknown URL format {}. Must be ws://, wss://, or unix://".format(url)
+              )
