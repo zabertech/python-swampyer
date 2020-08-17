@@ -16,6 +16,14 @@ from .utils import logger
 from .exceptions import *
 from .serializers import *
 
+def register_transport(code):
+    def register(klass):
+        global TRANSPORT_REGISTRY
+        TRANSPORT_REGISTRY[code] = klass
+        return klass
+    return register
+
+
 class Transport(object):
     def __init__(self, url, serializers=None, **options):
         self.url = url
@@ -49,6 +57,8 @@ class Transport(object):
     def next(self):
         raise ExNotImplemented("next is not implemented")
 
+@register_transport('ws')
+@register_transport('wss')
 class WebsocketTransport(Transport):
 
     loop_timeout = 1
@@ -177,7 +187,7 @@ class RawsocketTransport(Transport):
     """
 
     buffer_size = 0xf
-    serializer = RAWSOCKET_SERIALIZER_JSON
+    serializer = None
     server_buffer_size = 0
 
     def create_socket(self, *args, **kwargs):
@@ -259,17 +269,23 @@ class RawsocketTransport(Transport):
         return self.socket.settimeout(timeout)
 
     def ping(self, last_ping_time):
-        # Unix sockets do not need a ping
+        # We don't do anything here since crossbar doesn't support ping/pong
+        # on raw sockets. Instead it treats the 0 byte as part of the length
+        # and thus explodes
+        # https://github.com/crossbario/crossbar/issues/381
+        #epoch_time = time.time()
+        #epoch_buf = struct.pack('!d', epoch_time)
+        #self.send(epoch_buf, RAWSOCKET_MESSAGE_TYPE_PING)
         return True
 
-    def send(self, payload):
+    def send(self, payload, message_type=RAWSOCKET_MESSAGE_TYPE_REGULAR):
         if isinstance(payload, WampMessage):
             payload = self.serializer.dumps(payload.package())
 
         if not isinstance(payload, (bytes, bytearray)):
             payload = payload.encode('utf8')
 
-        header = struct.pack('!B',0)
+        header = struct.pack('!B',message_type)
 
         # Python doesn't do 24bit ints so we tweak here
         length = struct.pack('!I',len(payload))[1:]
@@ -281,7 +297,10 @@ class RawsocketTransport(Transport):
         return self.socket.close()
 
     def recv_data(self, control_frame=True):
-        message_preamble = struct.unpack('!B',self.socket.recv(1))[0]
+        first_byte = self.socket.recv(1)
+        if first_byte is None or len(first_byte) == 0:
+            return
+        message_preamble = struct.unpack('!B',first_byte)[0]
         message_contents = self.socket.recv(3)
 
         magic = message_preamble & 0b11111000
@@ -303,23 +322,30 @@ class RawsocketTransport(Transport):
             message_payload = self.socket.recv(message_length)
             return message_payload
 
-        elif message_type == RAWSOCKET_MESSAGE_TYPE_PING:
-            raise NotImplementedError("Message type of PING not yet handled")
-
-        elif message_type == RAWSOCKET_MESSAGE_TYPE_PONG:
-            raise NotImplementedError("Message type of PONG not yet handled")
+        # We don't do anything here since crossbar doesn't support ping/pong
+        # on raw sockets. Instead it treats the 0 byte as part of the length
+        # and thus explodes
+        # https://github.com/crossbario/crossbar/issues/381
+        # So until crossbar does support ping/pong, we'll leave this commented out
+        #
+        #elif message_type == RAWSOCKET_MESSAGE_TYPE_PING:
+        #    message_length = struct.unpack('!I', message_contents + b'\0')[0]
+        #    message_payload = self.socket.recv(message_length)
+        #    self.send(message_payload,RAWSOCKET_MESSAGE_TYPE_PONG)
+        #    return
+        # elif message_type == RAWSOCKET_MESSAGE_TYPE_PONG:
+        #    return
 
     def next(self):
         """ Returns the next  buffer element
         """
         message_payload = self.recv_data()
+        if not message_payload: return
         return self.serializer.loads(message_payload)
 
+@register_transport('unix')
 class UnixsocketTransport(RawsocketTransport):
 
-    buffer_size = 0xf
-    serializer = RAWSOCKET_SERIALIZER_JSON
-    server_buffer_size = 0
     socket_path = None
 
     def init(self, **options):
@@ -342,12 +368,11 @@ class UnixsocketTransport(RawsocketTransport):
         sock.connect(self.socket_path)
         return sock
 
-
+@register_transport('tcpip')
 class TcpipsocketTransport(RawsocketTransport):
     socket_path = None
     host = None
     port = None
-
 
     def init(self, **options):
         m = re.search(r'tcpip://([\w\.]+):(\d+)',self.url)
@@ -366,21 +391,9 @@ class TcpipsocketTransport(RawsocketTransport):
 def get_transport(url, **options):
     ( protocol, junk ) = url.lower().split(':',1)
     if not protocol:
-        raise ExWAMPConnectionError("Unknown protocol for URL: '{}'".format(protocol))
+        raise ExWAMPConnectionError("Unknown transport protocol for URL: '{}'".format(protocol))
 
-    if protocol in('ws','wss'):
-        socket = WebsocketTransport(url,**options)
-        return socket
-
-    elif protocol in('unix'):
-        socket = UnixsocketTransport(url,**options)
-        return socket
-
-    elif protocol in('tcpip'):
-        socket = TcpipsocketTransport(url,**options)
-        return socket
-
-    else:
-        raise ExWAMPConnectionError(  
-                "Unknown URL format {}. Must be ws://, wss://, or unix://".format(url)
-              )
+    if protocol not in TRANSPORT_REGISTRY:
+        raise ExWAMPConnectionError("Transport protocol '{}' not known".format(protocol))
+        
+    return TRANSPORT_REGISTRY[protocol](url, **options)

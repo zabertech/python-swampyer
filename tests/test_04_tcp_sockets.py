@@ -60,10 +60,9 @@ def test_connection():
     unsub_result = client.unsubscribe(sub_result.subscription_id)
     assert unsub_result == swampyer.WAMP_UNSUBSCRIBED
 
-    # Then shutdown
-    client.shutdown()
+    # Then shutdown one of the clients
     client2.shutdown()
-
+    client.shutdown()
 
     
 if __name__ == '__main__':
