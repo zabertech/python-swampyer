@@ -96,7 +96,7 @@
 * Add .get and .set to messages
 * Add .gitignore
 
-2.20200817 - /home/aki/workspace/python-swampyer
+2.20200817 - Mon Aug 17 20:24:25 UTC 2020
 * Add RawSocket support for Tcpip and Unix socket
 * Add CBOR and MSGPack serialization support
 * Created tox tests for pypy3, py27, py36 and py38
