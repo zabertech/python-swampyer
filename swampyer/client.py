@@ -180,17 +180,13 @@ class WAMPClient(threading.Thread):
         options.setdefault('sslopt',self.sslopt)
         options.setdefault('loop_timeout',self.loop_timeout)
         options.setdefault('serializers',self.serializers)
-        self.transport = get_transport(
-                      self.url,
-                      **options)
 
         # Attempt connection once unless it's autoreconnect in which
         # case we try and try again...
         auto_reconnect = options.get('auto_reconnect',self.auto_reconnect)
         while True:
             try:
-                self.transport.connect()
-                self.handle_connect()
+                self.transport_connect(**options)
             except ExFatalError as ex:
                 logger.debug(
                     "Fatal Error connecting to {url}. {err}.\n{traceback}".format(
@@ -276,7 +272,6 @@ class WAMPClient(threading.Thread):
             if k in kwargs:
                 setattr(self,k,kwargs[k])
 
-
     def handle_challenge(self,data):
         """ Executed when the server requests additional
             authentication
@@ -287,6 +282,15 @@ class WAMPClient(threading.Thread):
         """ When the transport has initially connected
         """
         pass
+
+    def transport_connect(self, **options):
+        """ Attempt to hook up the transport
+        """
+        self.transport = get_transport(
+                            self.url,
+                            **options)
+        self.transport.connect()
+        self.handle_connect()
 
     def handle_join(self,details):
 
@@ -378,6 +382,13 @@ class WAMPClient(threading.Thread):
 
         return message
 
+    def receive_message(self, data):
+        """ Receives a message data from the transport and normalizes
+            it into a WampMessage
+        """
+        message = WampMessage.load(data)
+        return message
+
     def send_message(self,message):
         """ Send awamp message to the server. We don't wait
             for a response here. Just fire out a message
@@ -387,7 +398,7 @@ class WAMPClient(threading.Thread):
         if not self.transport:
             raise ExWAMPConnectionError("WAMP is currently disconnected!")
         logger.debug("SND>: {}".format(message))
-        self.transport.send(message)
+        self.transport.send_message(message)
 
     def send_and_await_response(self,request):
         """ Used by most things. Sends out a request then awaits a response
@@ -754,7 +765,7 @@ class WAMPClient(threading.Thread):
 
             try:
                 logger.debug("<RCV: {}".format(data))
-                message = WampMessage.load(data)
+                message = self.receive_message(data)
                 logger.debug("<RCV: {}".format(message.dump()))
                 try:
                     code_name = message.code_name.lower()
@@ -807,3 +818,6 @@ class WAMPClientTicket(WAMPClient):
             signature = self.password,
             extra = {}
         ))
+
+
+

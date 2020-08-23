@@ -48,6 +48,14 @@ class Transport(object):
     def send(self, payload):
         raise ExNotImplemented("send is not implemented")
 
+    def send_message(self, message):
+        """ Used by the client to send a message object. This will
+            allow us to intercept and serialize to the appropriate
+            format before sending it on.
+        """
+        payload = self.serializer.dumps(message.package())
+        self.send(payload)
+
     def close(self):
         raise ExNotImplemented("close is not implemented")
 
@@ -127,8 +135,6 @@ class WebsocketTransport(Transport):
 
     def send(self, payload):
         try:
-            if isinstance(payload, WampMessage):
-                payload = self.serializer.dumps(payload.package())
             if self.serializer.binary:
                 self.socket.send_binary(payload)
             else:
@@ -279,9 +285,6 @@ class RawsocketTransport(Transport):
         return True
 
     def send(self, payload, message_type=RAWSOCKET_MESSAGE_TYPE_REGULAR):
-        if isinstance(payload, WampMessage):
-            payload = self.serializer.dumps(payload.package())
-
         if not isinstance(payload, (bytes, bytearray)):
             payload = payload.encode('utf8')
 
@@ -387,7 +390,6 @@ class TcpipsocketTransport(RawsocketTransport):
         return sock
 
 
-
 def get_transport(url, **options):
     ( protocol, junk ) = url.lower().split(':',1)
     if not protocol:
@@ -397,3 +399,5 @@ def get_transport(url, **options):
         raise ExWAMPConnectionError("Transport protocol '{}' not known".format(protocol))
         
     return TRANSPORT_REGISTRY[protocol](url, **options)
+
+
