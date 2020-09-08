@@ -95,3 +95,11 @@
 1.20200709 - Thu Jul  9 17:53:37 PDT 2020
 * Add .get and .set to messages
 * Add .gitignore
+
+2.20200817 - Mon Aug 17 20:24:25 UTC 2020
+* Add RawSocket support for Tcpip and Unix socket
+* Add CBOR and MSGPack serialization support
+* Created tox tests for pypy3, py27, py36 and py38
+* Fix minor unregister logic error (pulling data from wrong place resulted in exception)
+* Minor tweak to shutdown code to trigger exception in main loop to hopefully stop loop faster
+* Refactor code into submodules and pull some of the bigger chunks out of __init__.py

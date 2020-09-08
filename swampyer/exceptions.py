@@ -17,5 +17,17 @@ class ExMessageCorrupt(SwampyException):
 class ExWAMPConnectionError(SwampyException):
     pass
 
+class ExNotImplemented(SwampyException, NotImplementedError):
+    pass
+
+class ExFatalError(SwampyException):
+    pass
+
+class ExTransportParseError(ExFatalError):
+    pass
+
+class ExShutdown(SwampyException):
+    pass
+
 # Support for deprecated WAMPConnectionError class
 WAMPConnectionError = ExWAMPConnectionError

@@ -241,3 +241,10 @@ dist
 *.sqlite3
 
 *.swp
+
+# Test Crossbar Server files we don't want stored
+test-password.txt
+key.priv
+key.pub
+
+experiments
