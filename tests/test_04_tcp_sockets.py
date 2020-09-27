@@ -21,7 +21,7 @@ def test_connection():
     client2 = connect_service('tcpip://localhost:18081')
 
     # Check if we can register
-    reg_result = client.register('com.izaber.wamp.hello', hello)
+    reg_result = client.register('com.izaber.wamp.hello', hello, details={"force_reregister": True})
     assert swampyer.WAMP_REGISTERED == reg_result
     assert reg_result == swampyer.WAMP_REGISTERED
 
