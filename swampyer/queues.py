@@ -36,10 +36,10 @@ class ConcurrencyRunner(threading.Thread):
             self._queue.put_exit(self)
 
 class ConcurrencyEvent(object):
-    def __init__(self, ev_type, runner):
+    def __init__(self, ev_type, runner=None):
         self.type = ev_type
         self.runner = runner
-        self.id = runner.concurrency_id
+        self.id = runner and runner.concurrency_id
 
     def start(self, queue):
         self.runner.start(queue)
@@ -47,13 +47,26 @@ class ConcurrencyEvent(object):
 class ConcurrencyQueue(threading.Thread):
     def __init__(self, max_concurrent=0,loop_timeout=0.1):
         super(ConcurrencyQueue,self).__init__()
-        self.max_concurrent = max_concurrent
         self.active = True
         self.active_threads = {}
         self.waiting = []
         self.queue = queue.Queue()
-        self.loop_timeout = loop_timeout
         self.daemon = True
+        self.configure(
+            max_concurrent = max_concurrent,
+            loop_timeout = loop_timeout
+        )
+
+    def configure(self, **kwargs):
+        for k in ( 'max_concurrent', 'loop_timeout', ):
+            if k == 'max_concurrent':
+                max_concurrent = kwargs[k]
+                self.max_concurrent = max_concurrent
+                event = ConcurrencyEvent(EV_MAX_UPDATED)
+                self.queue.put(event)
+
+            elif k in kwargs:
+                setattr(self,k,kwargs[k])
 
     def put(self, runner):
         """ Notify the concurrency loop that we'd like to start a thread
@@ -92,15 +105,22 @@ class ConcurrencyQueue(threading.Thread):
                         continue
                     self.active_threads[event.id] = event
                     event.start(self)
+                    continue
 
                 # And captured an exit event.
-                elif event.type == EV_EXIT:
+                if event.type == EV_EXIT:
                     del self.active_threads[event.id]
+
+                # If the max concurrent has been updated or something
+                # has finished running. Rescan the pending items to
+                # see if we need to start any additional items
+                if event.type in ( EV_EXIT, EV_MAX_UPDATED ):
                     while self.waiting:
                         if self.queue_full(): break
                         waiting = self.waiting.pop(0)
                         self.active_threads[waiting.id] = waiting
                         waiting.start(self)
+
 
             # If queue is empty, it's a timeout. We use the
             # opportunity to check if we've been requsested to drop

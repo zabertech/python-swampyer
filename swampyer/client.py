@@ -109,7 +109,8 @@ class WAMPClient(threading.Thread):
     session_id = None
     peer = None
 
-    concurrency_max = None,
+    concurrency_max = None
+    concurrency_strict_naming = False
 
     _subscriptions = None
     _registered_calls = None
@@ -142,6 +143,7 @@ class WAMPClient(threading.Thread):
                 sockopt=None,
                 serializers=None,
                 concurrency_max=None,
+                concurrency_strict_naming=True,
                 ):
 
         self._state = STATE_DISCONNECTED
@@ -167,6 +169,7 @@ class WAMPClient(threading.Thread):
             ping_interval = ping_interval,
             serializers = serializers,
             concurrency_max = concurrency_max,
+            concurrency_strict_naming = concurrency_strict_naming,
         )
 
     def get_full_uri(self,uri):
@@ -278,10 +281,58 @@ class WAMPClient(threading.Thread):
                   'agent','timeout','authmethods', 'authid',
                   'serializers', 'auto_reconnect', 'sslopt', 'sockopt',
                   'loop_timeout', 'heartbeat_timeout', 'ping_interval',
-                  'concurrency_max',
+                  'concurrency_max', 'concurrency_strict_naming',
                   ):
+
             if k in kwargs:
-                setattr(self,k,kwargs[k])
+
+                # We normalize concurrency_max into a dict. If the provided
+                # concurrency_max is a number, we'll just apply it to `default`
+                # Finally, we'll need to go through and set all the concurrency
+                # queues to their new max value
+                if k == 'concurrency_max':
+                    concurrency_max = kwargs[k]
+                    if self.concurrency_max is None:
+                        self.concurrency_max = { 'default': 0 }
+                    try:
+                        self.concurrency_max.update(concurrency_max)
+                    except TypeError:
+                        self.concurrency_max['default'] = int(concurrency_max or 0)
+
+                    # This will update the queues with the new maximum sizes
+                    if self._concurrency_queues:
+                        for queue_name, queue in self._concurrency_queues.items():
+                            queue.max_concurrent = self.queue_size(queue_name)
+
+                else:
+                    setattr(self,k,kwargs[k])
+
+    def queue_size(self, queue_name):
+        """ Returns the calculated queue size by name
+        """
+        # If we don't have anything set, we'll just start everything
+        # off immediately
+        if not self.concurrency_max or queue_name == 'unlimited':
+            max_concurrent = 0 
+
+        else:
+
+            if queue_name not in self.concurrency_max:
+                # If we want to prevent errors in speling for the queue names, we can force
+                # the queue names to be strict with self.concurrency_strict_name = True
+                # By default this is ON
+                if self.concurrency_strict_naming:
+                    raise ExNotImplemented("{} queue has not been defined!".format(queue_name))
+
+                # If not strict, simply create a new queue
+                self.concurrency_max[queue_name] = None
+
+            # If the queue's concurrency value is "None" use the default value
+            max_concurrent = self.concurrency_max[queue_name]
+            if max_concurrent is None:
+                max_concurrent = self.concurrency_max.get('default',0) 
+
+        return max_concurrent
 
     def queue_run(self, runner, queue_name=None ):
         """ Puts a single runnable into the concurrency queue based upon
@@ -293,27 +344,26 @@ class WAMPClient(threading.Thread):
             simple int, will use that. If it's a dict, will first search for
             the `queue_name` and a value and use that if present otherwise looks
             for "default" and uses that one instead
+
+            If the `queue_name` is `unlimited`, this will put the invocation or
+            subscription into a queue that runs immediately regardless of the
+            current default concurrency limit globally set.
+
+            If the `queue_name` has not been defined explicitly by the user
+            at instantiation, it will silently create one but use the system
+            default queue size
         """
         if not queue_name:
             queue_name = 'default'
         queues = self._concurrency_queues
         if queue_name not in queues:
-            try:
-                if queue_name == 'unlimited':
-                    queue_maxsize = 0 
-                    
-                else:
-                    queue_maxsize = self.concurrency_max.get(
-                                        queue_name,
-                                        self.concurrency_max.get('default',0) 
-                                    )
-            except:
-                if self.concurrency_max is None:
-                    queue_maxsize = 0
-                else:
-                    queue_maxsize = int(self.concurrency_max)
+
+            # Calculate the size of the queue
+            max_concurrent = self.queue_size(queue_name)
+
+            # Create the new queue as required
             concurrency_queue = ConcurrencyQueue(
-                                    max_concurrent=queue_maxsize,
+                                    max_concurrent=max_concurrent,
                                     loop_timeout=self.loop_timeout,
                                   )
             queues[queue_name] = concurrency_queue
@@ -568,6 +618,9 @@ class WAMPClient(threading.Thread):
     def subscribe(self,topic,callback=None,options=None,concurrency_queue=None):
         """ Subscribe to a uri for events from a publisher
         """
+        # If a concurrency queue is requested, check the queue if required
+        self.queue_size(concurrency_queue or 'default')
+
         full_topic = self.get_full_uri(topic)
         result = self.send_and_await_response(SUBSCRIBE(
                                     options=options or {},
@@ -736,6 +789,9 @@ class WAMPClient(threading.Thread):
                 `self.concurrency_map`
 
         """
+        # If a concurrency queue is requested, check the queue if required
+        self.queue_size(concurrency_queue or 'default')
+
         full_uri = self.get_full_uri(uri)
         result = self.send_and_await_response(REGISTER(
                       details=details or {},

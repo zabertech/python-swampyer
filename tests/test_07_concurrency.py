@@ -79,7 +79,7 @@ def test_connection():
     client = connect_service(concurrency_max=2)
     client2 = connect_service()
 
-    # Part 1
+    # --------------------------------------------------------------
     # Check if we can register
     reg_result = client.register(
                       'com.izaber.wamp.hello.default',
@@ -101,7 +101,7 @@ def test_connection():
     unreg_result = client.unregister(reg_result.registration_id)
     assert unreg_result == swampyer.WAMP_UNREGISTERED
 
-    # Part 2
+    # --------------------------------------------------------------
     # Okay, so let's register a new entry that can have unlimited
     reg_result = client.register(
                       'com.izaber.wamp.hello.unlimited',
@@ -123,6 +123,7 @@ def test_connection():
     unreg_result = client.unregister(reg_result.registration_id)
     assert unreg_result == swampyer.WAMP_UNREGISTERED
 
+    # --------------------------------------------------------------
     # Clear the trackers since we're going to do new
     # a new set of runs
     TRACKER = {}
@@ -150,14 +151,49 @@ def test_connection():
         simple_call(client2,k) for k in concurrency_limits.keys()
     ],50)
 
-    # What was the maximum number of concurrent connections?
-    # Since this was to an unlimited call queue, it should hit 10
+    # Match the max concurrency amounts with what we expect them to be
     for k,v in concurrency_limits.items():
         assert TRACKER_MAX[k] == v
 
-    # Unregister the previous function
-    unreg_result = client3.unregister(reg_result.registration_id)
-    assert unreg_result == swampyer.WAMP_UNREGISTERED
+    # --------------------------------------------------------------
+    # Let's amend the concurrency limits to new ones
+    concurrency_limits = {
+        'just2': 20,
+        'just5': 10,
+        'just10': 30,
+    }
+    client3.configure(concurrency_max=concurrency_limits)
+
+    # Let's create a burst of data
+    invoke_a_bunch([
+        simple_call(client2,k) for k in concurrency_limits.keys()
+    ],50)
+
+    # Match the max concurrency amounts with what we expect them to be
+    for k,v in concurrency_limits.items():
+        assert TRACKER_MAX[k] == v
+
+    # --------------------------------------------------------------
+    # By default we don't allow auto creation of new concurrency queues
+    def unmadequeue():
+        return client3.register(
+                          'com.izaber.wamp.hello.fake',
+                          simple_invoke,
+                          details={"force_reregister": True},
+                          concurrency_queue='unmadequeue',
+                      )
+    try:
+        unmadequeue()
+        raise Exception("What, this shouldn't happen")
+    except Exception as ex:
+        assert isinstance(ex, swampyer.ExNotImplemented)
+
+    # --------------------------------------------------------------
+    # But it we update the client to allow it, it should happen
+    client3.configure(concurrency_strict_naming=False)
+    reg_result = unmadequeue()
+    assert swampyer.WAMP_REGISTERED == reg_result
+    assert reg_result == swampyer.WAMP_REGISTERED
 
 
     # Then shutdown
