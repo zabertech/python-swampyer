@@ -33,7 +33,7 @@ def simple_invoke(event, queue_name):
     TRACKER[queue_name] += 1
     if TRACKER[queue_name] > TRACKER_MAX[queue_name]:
         TRACKER_MAX[queue_name] = TRACKER[queue_name]
-    time.sleep(0.2)
+    time.sleep(0.5)
     TRACKER[queue_name] -= 1
     return queue_name
 
@@ -76,8 +76,8 @@ def test_connection():
     # Which is correct?
     # So while the policy is a bit blunt, we force the definition of the
     # queue size at session creation
-    client = connect_service(concurrency_max=2)
-    client2 = connect_service()
+    client = connect_service(concurrency_max=2,timeout=60)
+    client2 = connect_service(timeout=60)
 
     # --------------------------------------------------------------
     # Check if we can register
@@ -135,7 +135,7 @@ def test_connection():
         'just5': 5,
         'just10': 10,
     }
-    client3 = connect_service(concurrency_max=concurrency_limits)
+    client3 = connect_service(concurrency_max=concurrency_limits,timeout=60)
     for k in concurrency_limits.keys():
         reg_result = client3.register(
                           'com.izaber.wamp.hello.'+k,
