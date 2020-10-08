@@ -103,3 +103,6 @@
 * Fix minor unregister logic error (pulling data from wrong place resulted in exception)
 * Minor tweak to shutdown code to trigger exception in main loop to hopefully stop loop faster
 * Refactor code into submodules and pull some of the bigger chunks out of __init__.py
+
+2.20201008 - Thu Oct  8 16:52:32 UTC 2020
+* FIX: Python3.9 deprecated threading.Thread.isAlive for threading.Thread.is_alive
