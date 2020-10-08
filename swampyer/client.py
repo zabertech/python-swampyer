@@ -743,11 +743,19 @@ class WAMPClient(threading.Thread):
                 break
             time.sleep(0.1)
 
+    def _is_alive(self):
+        """ From python2.7 to 3.9, threading.Thread.isAlive became threading.Thread.is_alive
+        """
+        try:
+            return self.is_alive()
+        except AttributeError:
+            return self.isAlive()
+
     def start(self, **options):
         """ Initialize the transport, say hello, and start listening for events
         """
         self.connect(**options)
-        if not self.isAlive():
+        if not self._is_alive():
             super(WAMPClient,self).start()
         self.hello()
         return self
