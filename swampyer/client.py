@@ -127,6 +127,8 @@ class WAMPClient(threading.Thread):
     _state = STATE_DISCONNECTED
     _concurrency_queues = None
 
+    _stats = None
+
     _last_ping_time = None
     _last_pong_time = None
     _heartbeat_thread = None
@@ -234,7 +236,20 @@ class WAMPClient(threading.Thread):
         if not soft_reset:
             self._subscriptions    = {}
             self._registered_calls = {}
+            self._stats = None
 
+        if self._stats is None:
+            self._stats = {
+                'messages': 0,
+                'invocations': 0,
+                'calls': 0,
+                'events': 0,
+                'publications': 0,
+                'errors': 0,
+                'last_reset': time.time(),
+            }
+
+            
         # Setup the invoke/subscribe concurrency handlers
         for concurrency_queue in self._concurrency_queues.values():
             concurrency_queue.reset()
@@ -247,7 +262,6 @@ class WAMPClient(threading.Thread):
         self._request_loop_notify_restart.acquire()
         self._request_loop_notify_restart.notify()
         self._request_loop_notify_restart.release()
-
 
     def start_heartbeat(self, event):
         self._last_ping_time = None
@@ -275,6 +289,12 @@ class WAMPClient(threading.Thread):
             thread.setDaemon(True)
             thread.start()
             self.heartbeat_thread = thread
+
+    def stats(self):
+        """ Return the current stats object. Just a simple counter based
+            report on what the client has been up to
+        """
+        return self._stats
 
     def is_disconnected(self):
         """ returns a true value if the connection is currently dead
@@ -497,6 +517,9 @@ class WAMPClient(threading.Thread):
         """
         if self._state == STATE_DISCONNECTED:
             raise ExWAMPConnectionError("WAMP is currently disconnected!")
+
+        self._stats['calls'] += 1
+
         options = {
             'disclose_me': True
         }
@@ -607,6 +630,7 @@ class WAMPClient(threading.Thread):
     def handle_error(self, error):
         """ OOops! An error occurred
         """
+        self._stats['errors'] += 1
         self.dispatch_to_awaiting(error)
 
     def handle_abort(self, reason):
@@ -620,6 +644,7 @@ class WAMPClient(threading.Thread):
         """ Passes the invocation request to the appropriate
             callback.
         """
+        self._stats['invocations'] += 1
         req_id = message.request_id
         reg_id = message.registration_id
         if reg_id in self._registered_calls:
@@ -649,6 +674,7 @@ class WAMPClient(threading.Thread):
     def handle_event(self, event):
         """ Send the event to the subclass or simply reject
         """
+        self._stats['events'] += 1
         subscription_id = event.subscription_id
         if subscription_id in self._subscriptions:
             # FIXME: [1] should be a constant
@@ -706,6 +732,7 @@ class WAMPClient(threading.Thread):
     def publish(self,topic,options=None,args=None,kwargs=None):
         """ Publishes a messages to the server
         """
+        self._stats['publications'] += 1
         topic = self.get_full_uri(topic)
         if options is None:
             options = {'acknowledge':True}
@@ -953,6 +980,7 @@ class WAMPClient(threading.Thread):
             try:
                 logger.debug("<RCV: {}".format(data))
                 message = self.receive_message(data)
+                self._stats['messages'] += 1
                 logger.debug("<RCV: {}".format(message.dump()))
                 try:
                     code_name = message.code_name.lower()

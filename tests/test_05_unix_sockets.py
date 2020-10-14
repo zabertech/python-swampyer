@@ -9,9 +9,10 @@ import time
 import swampyer
 
 
+logging.basicConfig(stream=sys.stdout, level=30)
 # We want to see the protocol information
 # being exchanged
-logging.basicConfig(stream=sys.stdout, level=1)
+#logging.basicConfig(stream=sys.stdout, level=1)
 
 def hello(event,data):
     return data
@@ -60,6 +61,20 @@ def test_connection():
     unsub_result = client.unsubscribe(sub_result.subscription_id)
     assert unsub_result == swampyer.WAMP_UNSUBSCRIBED
 
+    # Now just make sure we have some stats
+    stats1 = client.stats()
+    stats2 = client2.stats()
+
+    assert stats1['invocations'] == 1
+    assert stats1['events'] == 1
+    assert stats1['calls'] == 0
+    assert stats1['publications'] == 0
+
+    assert stats2['invocations'] == 0
+    assert stats2['events'] == 0
+    assert stats2['calls'] == 1
+    assert stats2['publications'] == 1
+
     # Then shutdown
     client.shutdown()
     client2.shutdown()
@@ -67,5 +82,5 @@ def test_connection():
 
     
 if __name__ == '__main__':
-    print(test_connection())
+    test_connection()
 

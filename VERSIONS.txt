@@ -110,4 +110,6 @@
 
 2.20201014 - Wed Oct 14 14:53:31 UTC 2020
 * Refactor to allow subclassing and customizing how invocation/subscription event queues are managed
+* Add some very basic stats to client (messages, invocations, calls, etc). `client.stats()` will return a small dict
+
 
