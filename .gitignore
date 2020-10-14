@@ -240,6 +240,7 @@ dist
 # Ignore sqlite databases
 *.sqlite3
 
+*.swo
 *.swp
 
 # Test Crossbar Server files we don't want stored
@@ -248,3 +249,4 @@ key.priv
 key.pub
 
 experiments
+

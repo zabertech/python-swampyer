@@ -114,6 +114,73 @@ def targetted_concurrency():
     client.register("hello5", hello_world, concurrency_queue="nonexisting")
 
 
+def concurrency_events(*args, **kwargs):
+    """ By subclassing swampyer.ConcurrencyQueue, it's possible to manage
+        how subscription events and invocations get handed over to the
+        handlers.
+
+        In this example, a new class `CustomQueue` is created. It will:
+
+        - Have a default queue size of 5
+        - Throw errors once the wait queue grows to 100 (rejects the call)
+        - Any procedure that has `bypass` in the URI will skip the queue
+        - Log the maximum number of waiting events
+
+    """
+
+    class CustomQueue(swampyer.ConcurrencyQueue):
+
+        def init(self, max_allowed=100):
+            self.max_waiting = 0
+            self.max_allowed = max_allowed
+        
+        def job_should_wait(self, event):
+            message = event.message
+
+            # We have two possibilities. One is an invoke (to start
+            # a function) the other an event for a subscription
+            if message == swampyer.WAMP_INVOCATION:
+
+                # In the case of a procedure, if the 2nd element
+                # of the args array is True, we will bypass the
+                # queue limit check and immediately run the invocation
+                if message.args[1]:
+                    return False
+
+            elif message == swampyer.WAMP_EVENT:
+                print(message.dump())
+
+            return super(CustomQueue,self).job_should_wait(event)
+
+        def queue_init(self, event):
+
+            waiting_jobs = self.waiting_count()
+
+            # Check and log if the number of waiting jobs reaches a new high
+            if waiting_jobs > self.max_waiting:
+                self.max_waiting = waiting_jobs
+
+            # Then check if the jobs is `self.max_allowed` or more. If so, we throw and error
+            # that will get sent back to the client making the call
+            if waiting_jobs >= self.max_allowed:
+                raise Exception("Exceeded waiting counts")
+
+            # Otherwise proceed normally
+            super(CustomQueue,self).queue_init(event)
+
+    my_queue = CustomQueue( 
+                  max_concurrent=5,
+                  max_allowed=100
+                )
+
+    client = swampyer.WAMPClient(
+                    url="ws://localhost:8282/ws",
+                    uri_base="com.example.wamp.api",
+                    concurrency_queues={
+                      'default': my_queue
+                    }
+                ).start()
+
 
 try:
 

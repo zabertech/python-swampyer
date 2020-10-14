@@ -24,11 +24,35 @@ class WampInvokeWrapper(ConcurrencyRunner):
     """ Used to put invoke requests on a separate thread
         so we can make WAMP requests while in a WAMP request
     """
-    def __init__(self,client,handler,message):
-        super(WampInvokeWrapper,self).__init__()
+    def __init__(self,handler,message,client):
+        super(WampInvokeWrapper,self).__init__(handler,message)
         self.client = client
-        self.handler = handler
-        self.message = message
+
+    def handle_error(self, ex):
+        error_uri = self.client.get_full_uri('error.invoke.failure')
+        req_id = self.message.request_id
+
+        exargs = ["Call failed: {}".format(ex)]
+        try:
+            json.dumps(ex.args) # Just testing
+            exargs += list(ex.args)
+        except TypeError as err:
+            logger.warning("Unable to serialize exception arguments: {}".format(ex))
+
+        try:
+            self.client.send_message(ERROR(
+                request_code = WAMP_INVOCATION,
+                request_id = req_id,
+                details = {},
+                error = error_uri,
+                args = exargs
+            ))
+
+        # We might fail when we try to send an error message back to the
+        # server (should we have disconnected)
+        except Exception as ex:
+            logger.error("ERROR attempting to send error message: {}".format(ex))
+
 
     def work(self):
         message = self.message
@@ -46,38 +70,18 @@ class WampInvokeWrapper(ConcurrencyRunner):
                 args=[result]
             ))
         except Exception as ex:
-            error_uri = self.client.get_full_uri('error.invoke.failure')
-
-            exargs = ["Call failed: {}".format(ex)]
-            try:
-                json.dumps(ex.args) # Just testing
-                exargs += list(ex.args)
-            except TypeError as err:
-                logger.warning("Unable to serialize exception arguments: {}".format(ex))
-
-            try:
-                self.client.send_message(ERROR(
-                    request_code = WAMP_INVOCATION,
-                    request_id = req_id,
-                    details = {},
-                    error = error_uri,
-                    args = exargs
-                ))
-
-            # We might fail when we try to send an error message back to the
-            # server (should we have disconnected)
-            except Exception as ex:
-                logger.error("ERROR attempting to send error message: {}".format(ex))
+            self.handle_error(ex)
 
 class WampSubscriptionWrapper(ConcurrencyRunner):
     """ Used to put invoke requests on a separate thread
         so we can make WAMP requests while in a WAMP request
     """
-    def __init__(self,client,handler,event):
-        super(WampSubscriptionWrapper,self).__init__()
+    def __init__(self,handler,message,client):
+        super(WampSubscriptionWrapper,self).__init__(handler, message)
         self.client = client
-        self.handler = handler
-        self.event = event
+
+        # Alias message to event for the sake of clarity
+        self.event = message
 
     def work(self):
         event = self.event
@@ -103,6 +107,8 @@ class WAMPClient(threading.Thread):
     loop_timeout = 5
     heartbeat_timeout = 10
     ping_interval = 3
+
+    concurrency_class = ConcurrencyQueue
 
     auto_reconnect = True
 
@@ -144,6 +150,7 @@ class WAMPClient(threading.Thread):
                 serializers=None,
                 concurrency_max=None,
                 concurrency_strict_naming=True,
+                concurrency_queues=None,
                 ):
 
         self._state = STATE_DISCONNECTED
@@ -170,6 +177,7 @@ class WAMPClient(threading.Thread):
             serializers = serializers,
             concurrency_max = concurrency_max,
             concurrency_strict_naming = concurrency_strict_naming,
+            concurrency_queues = concurrency_queues,
         )
 
     def get_full_uri(self,uri):
@@ -227,11 +235,13 @@ class WAMPClient(threading.Thread):
             self._subscriptions    = {}
             self._registered_calls = {}
 
+        # Setup the invoke/subscribe concurrency handlers
+        for concurrency_queue in self._concurrency_queues.values():
+            concurrency_queue.reset()
+
         self._requests_pending = {}
         self._state = STATE_WEBSOCKET_CONNECTED
 
-        # Setup the invoke/subscribe concurrency handlers
-        self._concurrency_queues = {}
 
         # notify the threading.Conditional that restart can happen
         self._request_loop_notify_restart.acquire()
@@ -281,7 +291,8 @@ class WAMPClient(threading.Thread):
                   'agent','timeout','authmethods', 'authid',
                   'serializers', 'auto_reconnect', 'sslopt', 'sockopt',
                   'loop_timeout', 'heartbeat_timeout', 'ping_interval',
-                  'concurrency_max', 'concurrency_strict_naming',
+                  'concurrency_class',
+                  'concurrency_max', 'concurrency_strict_naming', 'concurrency_queues',
                   ):
 
             if k in kwargs:
@@ -304,8 +315,63 @@ class WAMPClient(threading.Thread):
                         for queue_name, queue in self._concurrency_queues.items():
                             queue.max_concurrent = self.queue_size(queue_name)
 
+                # We can replace the standard concurrency queues with our own subclasses
+                # This gives us further event management handling controls
+                elif k == 'concurrency_queues':
+                    new_concurrency_queues = kwargs[k]
+                    if self._concurrency_queues:
+                        concurrency_queues = self._concurrency_queues
+                        for queue_name, new_concurrency_queue in new_concurrency_queues.items():
+                            concurrency_queue = concurrency_queues.get(queue_name)
+                            if concurrency_queue:
+                                new_concurrency_queue.transfer(concurrency_queue)
+                            self._concurrency_queues[queue_name] = new_concurrency_queue
+                    else:
+                        self._concurrency_queues = new_concurrency_queues or {}
+
                 else:
                     setattr(self,k,kwargs[k])
+
+    def get_queue(self, queue_name):
+        """ Returns the queue identified by `queue_name`. If no queue exists by 
+            that name (yet) and self.concurrency_strict_naming exists, the
+            queue will be instantiated and returned
+
+            If a queue by the name `queue_name` does not already exist, creates
+            it with the concurrency_max value. If concurrency_max value is a 
+            simple int, will use that. If it's a dict, will first search for
+            the `queue_name` and a value and use that if present otherwise looks
+            for "default" and uses that one instead
+
+            If the `queue_name` is `unlimited`, this will put the invocation or
+            subscription into a queue that runs immediately regardless of the
+            current default concurrency limit globally set.
+
+            If the `queue_name` has not been defined explicitly by the user
+            at instantiation, it will silently create one but use the system
+            default queue size
+        """
+
+        queues = self._concurrency_queues
+        if queue_name not in queues:
+
+            # Calculate the size of the queue
+            max_concurrent = self.queue_size(queue_name)
+
+            # Create the new queue as required
+            concurrency_queue = self.concurrency_class(
+                                      max_concurrent=max_concurrent,
+                                      loop_timeout=self.loop_timeout,
+                                  )
+            queues[queue_name] = concurrency_queue
+
+        concurrency_queue = queues[queue_name]
+
+        # Just in case, let's start the queue thread
+        if not concurrency_queue.is_alive():
+            concurrency_queue.start()
+
+        return concurrency_queue
 
     def queue_size(self, queue_name):
         """ Returns the calculated queue size by name
@@ -339,37 +405,10 @@ class WAMPClient(threading.Thread):
             the name of the queue. If no queue_name is provided, defaults
             to 'default'
 
-            If a queue by the name `queue_name` does not already exist, creates
-            it with the concurrency_max value. If concurrency_max value is a 
-            simple int, will use that. If it's a dict, will first search for
-            the `queue_name` and a value and use that if present otherwise looks
-            for "default" and uses that one instead
-
-            If the `queue_name` is `unlimited`, this will put the invocation or
-            subscription into a queue that runs immediately regardless of the
-            current default concurrency limit globally set.
-
-            If the `queue_name` has not been defined explicitly by the user
-            at instantiation, it will silently create one but use the system
-            default queue size
         """
         if not queue_name:
             queue_name = 'default'
-        queues = self._concurrency_queues
-        if queue_name not in queues:
-
-            # Calculate the size of the queue
-            max_concurrent = self.queue_size(queue_name)
-
-            # Create the new queue as required
-            concurrency_queue = ConcurrencyQueue(
-                                    max_concurrent=max_concurrent,
-                                    loop_timeout=self.loop_timeout,
-                                  )
-            queues[queue_name] = concurrency_queue
-            concurrency_queue.start()
-
-        queues[queue_name].put(runner)
+        self.get_queue(queue_name).put(runner)
 
     def handle_challenge(self,data):
         """ Executed when the server requests additional
@@ -586,8 +625,20 @@ class WAMPClient(threading.Thread):
         if reg_id in self._registered_calls:
             handler = self._registered_calls[reg_id][REGISTERED_CALL_CALLBACK]
             queue_name = self._registered_calls[reg_id][REGISTERED_CALL_QUEUE_NAME]
-            runner = WampInvokeWrapper(self,handler,message)
-            self.queue_run(runner,queue_name)
+            runner = WampInvokeWrapper(handler,message,self)
+            try:
+                self.queue_run(runner,queue_name)
+            except Exception as ex:
+                error_uri = self.get_full_uri('error.invoke.failed')
+                print("REASON:", ex)
+                import traceback;traceback.print_exc()
+                self.send_message(ERROR(
+                    request_code = WAMP_INVOCATION,
+                    request_id = req_id,
+                    details = {},
+                    error = error_uri,
+                    args = [str(ex)],
+                ))
         else:
             error_uri = self.get_full_uri('error.unknown.uri')
             self.send_message(ERROR(
@@ -605,8 +656,18 @@ class WAMPClient(threading.Thread):
             # FIXME: [1] should be a constant
             handler = self._subscriptions[subscription_id][SUBSCRIPTION_CALLBACK]
             queue_name = self._subscriptions[subscription_id][SUBSCRIPTION_QUEUE_NAME]
-            runner = WampSubscriptionWrapper(self,handler,event)
-            self.queue_run(runner, queue_name)
+            runner = WampSubscriptionWrapper(handler,event,self)
+
+            # Since this is a subscription event, we will merely dispose
+            # the error right now. 
+            try:
+                self.queue_run(runner, queue_name)
+            except Exception as ex:
+                logger.warning(
+                    "Subscription event receipt failed because {ex}".format(
+                      ex = str(ex)
+                    )
+                )
 
     def handle_unknown(self, message):
         """ We don't know what to do with this. So we'll send it
@@ -639,7 +700,9 @@ class WAMPClient(threading.Thread):
         try:
             del self._subscriptions[subscription_id]
         except IndexError:
-            logger.warn("Subscription ID '%s' not found in local subscription list. Sent unsubscribe to router anyway.")
+            logger.warning(
+                "Subscription ID '{}' not found in local subscription list. Sent unsubscribe to router anyway.".format(subscription_id)
+              )
         return result
 
     def publish(self,topic,options=None,args=None,kwargs=None):
@@ -722,9 +785,10 @@ class WAMPClient(threading.Thread):
         self._request_shutdown = True
 
         # Shutdown any responses pending
-        for concurrency_queue in self._concurrency_queues.values():
-            concurrency_queue.active = False
-        self._concurrency_queues = None
+        if self._concurrency_queues:
+            for concurrency_queue in self._concurrency_queues.values():
+                concurrency_queue.active = False
+            self._concurrency_queues = None
 
         # Trigger an exception in the reading thread so we can stop the
         # read loop faster
@@ -743,19 +807,11 @@ class WAMPClient(threading.Thread):
                 break
             time.sleep(0.1)
 
-    def _is_alive(self):
-        """ From python2.7 to 3.9, threading.Thread.isAlive became threading.Thread.is_alive
-        """
-        try:
-            return self.is_alive()
-        except AttributeError:
-            return self.isAlive()
-
     def start(self, **options):
         """ Initialize the transport, say hello, and start listening for events
         """
         self.connect(**options)
-        if not self._is_alive():
+        if not self.is_alive():
             super(WAMPClient,self).start()
         self.hello()
         return self
@@ -853,7 +909,10 @@ class WAMPClient(threading.Thread):
                     # If the last ping response happened too long
                     # ago, consider it a transport timeout and
                     # handle disconnect.
-                        raise ExWAMPConnectionError("Maximum transport response delay of %s secs exceeded.", self.heartbeat_timeout)
+                        raise ExWAMPConnectionError(
+                                  "Maximum transport response delay of %s secs exceeded.",
+                                  self.heartbeat_timeout
+                              )
 
                 # Okay, we think we're okay so let's try and read some data
                 data = self.transport.next()
@@ -905,7 +964,10 @@ class WAMPClient(threading.Thread):
                 except AttributeError as ex:
                     self.handle_unknown(message)
             except Exception as ex:
-                logger.error("ERROR in main loop when receiving: {}".format(ex))
+                logger.error("ERROR in main loop when receiving: {ex}\n{traceback}".format(
+                    ex=ex,
+                    traceback=traceback.format_exc(),
+                ))
 
 class WAMPClientTicket(WAMPClient):
     username = None
@@ -926,7 +988,6 @@ class WAMPClientTicket(WAMPClient):
         self.configure(
             password = password,
             username = username,
-            **kwargs
         )
 
     def configure(self, **kwargs):
