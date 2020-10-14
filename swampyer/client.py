@@ -630,8 +630,6 @@ class WAMPClient(threading.Thread):
                 self.queue_run(runner,queue_name)
             except Exception as ex:
                 error_uri = self.get_full_uri('error.invoke.failed')
-                print("REASON:", ex)
-                import traceback;traceback.print_exc()
                 self.send_message(ERROR(
                     request_code = WAMP_INVOCATION,
                     request_id = req_id,

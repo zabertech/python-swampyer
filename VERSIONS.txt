@@ -106,3 +106,8 @@
 
 2.20201008 - Thu Oct  8 16:52:32 UTC 2020
 * FIX: Python3.9 deprecated threading.Thread.isAlive for threading.Thread.is_alive
+* Add support for queuing invocations and subscription event handling so client doesn't get slammed on limited resources
+
+2.20201014 - Wed Oct 14 14:53:31 UTC 2020
+* Refactor to allow subclassing and customizing how invocation/subscription event queues are managed
+
