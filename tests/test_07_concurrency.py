@@ -38,10 +38,17 @@ def simple_invoke(event, queue_name):
     TRACKER[queue_name] -= 1
     return queue_name
 
+CALL_ERRORS = {}
 def simple_call(client, method):
     def make_call():
-        call_result = client.call('com.izaber.wamp.hello.'+method,method)
-        assert call_result == method
+        try:
+            call_result = client.call('com.izaber.wamp.hello.'+method,method)
+            assert call_result == method
+        except swampyer.ExInvocationError as ex:
+            CALL_ERRORS.setdefault(method,0)
+            CALL_ERRORS[method] += 1
+
+
     return make_call
  
 
@@ -61,10 +68,13 @@ def invoke_a_bunch(methods, iterations):
         thr.join()
 
 
-def test_connection():
-    global TRACKER
-    global TRACKER_MAX
+def reset_trackers():
+    TRACKER.clear()
+    TRACKER_MAX.clear()
+    CALL_ERRORS.clear()
 
+
+def test_connection():
     # For concurrency, the queues must be defined in advance.
     # This is partly because this forces the setting of the queue size before
     # things can get messy
@@ -77,7 +87,10 @@ def test_connection():
     # Which is correct?
     # So while the policy is a bit blunt, we force the definition of the
     # queue size at session creation
-    client = connect_service(concurrency_max=2,timeout=60)
+    client = connect_service(
+                  concurrency_max=2,
+                  timeout=60
+              )
     client2 = connect_service(timeout=60)
 
     # --------------------------------------------------------------
@@ -127,17 +140,23 @@ def test_connection():
     # --------------------------------------------------------------
     # Clear the trackers since we're going to do new
     # a new set of runs
-    TRACKER = {}
-    TRACKER_MAX = {}
+    reset_trackers()
 
     # Let's create another client with multiple queues
-    concurrency_limits = {
-        'just2': 2,
-        'just5': 5,
-        'just10': 10,
+    concurrency_configs = {
+        'just2': {
+            'concurrency_max': 2,
+            'queue_max': 10,
+        },
+        'just5': {
+            'concurrency_max': 5,
+        },
+        'just10': {
+            'concurrency_max': 10,
+        },
     }
-    client3 = connect_service(concurrency_max=concurrency_limits,timeout=60)
-    for k in concurrency_limits.keys():
+    client3 = connect_service(concurrency_configs=concurrency_configs,timeout=60)
+    for k in concurrency_configs.keys():
         reg_result = client3.register(
                           'com.izaber.wamp.hello.'+k,
                           simple_invoke,
@@ -149,30 +168,39 @@ def test_connection():
 
     # Let's create a burst of data
     invoke_a_bunch([
-        simple_call(client2,k) for k in concurrency_limits.keys()
+        simple_call(client2,k) for k in concurrency_configs.keys()
     ],50)
 
     # Match the max concurrency amounts with what we expect them to be
-    for k,v in concurrency_limits.items():
-        assert TRACKER_MAX[k] == v
+    for k,v in concurrency_configs.items():
+        expected = v['concurrency_max']
+        assert TRACKER_MAX[k] <= expected, "Expected less than or equal to {} got {}".format(expected, TRACKER_MAX[k])
+
+    # Since we've put a queue_max on the just2 queue, we expect some
+    # errors as well
+    assert CALL_ERRORS['just2'] > 0
+    assert CALL_ERRORS.get('just5',0) == 0
+    assert CALL_ERRORS.get('just10',0) == 0
 
     # --------------------------------------------------------------
     # Let's amend the concurrency limits to new ones
-    concurrency_limits = {
+    concurrency_updates = {
         'just2': 20,
         'just5': 10,
         'just10': 30,
     }
-    client3.configure(concurrency_max=concurrency_limits)
+    for queue_name, new_limit in concurrency_updates.items():
+        concurrency_queue = client3.concurrency_queue_get(queue_name)
+        concurrency_queue.configure(concurrency_max=new_limit)
 
     # Let's create a burst of data
     invoke_a_bunch([
-        simple_call(client2,k) for k in concurrency_limits.keys()
+        simple_call(client2,k) for k in concurrency_configs.keys()
     ],50)
 
     # Match the max concurrency amounts with what we expect them to be
-    for k,v in concurrency_limits.items():
-        assert TRACKER_MAX[k] == v
+    for k,v in concurrency_updates.items():
+        assert TRACKER_MAX[k] <= v, "Expected less than or equal to {} got {}".format(v, TRACKER_MAX[k])
 
     # --------------------------------------------------------------
     # By default we don't allow auto creation of new concurrency queues
@@ -198,11 +226,8 @@ def test_connection():
 
 
     # Then shutdown
-    print("SHUTTING DOWN!1")
     client.shutdown()
-    print("SHUTTING DOWN!2")
     client2.shutdown()
-    print("SHUTTING DOWN!3")
     client3.shutdown()
 
 

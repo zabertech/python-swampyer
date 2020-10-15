@@ -79,7 +79,7 @@ def simple_call(client, method, bypass):
         try:
             call_result = client.call('com.izaber.wamp.hello.'+method,method,bypass)
             assert call_result == method
-        except swampyer.ExInvocationError:
+        except swampyer.ExInvocationError as ex:
             CALL_ERRORS.setdefault(method,0)
             CALL_ERRORS[method] += 1
 
@@ -153,14 +153,17 @@ class CustomQueue3(swampyer.ConcurrencyQueue):
         This will also set a max of 5 waiting connections
         before it starts throwing errors at the user
     """
+    def init(self, custom):
+        self.custom = custom
+
     def job_should_wait(self, event):
         if self.active_count() >= 2:
             return True
         return False
 
     def queue_init(self, event):
-        if self.waiting_count() >= 5:
-            raise Exception("Exceeded waiting counts")
+        if self.waitlist_count() >= 5:
+            raise Exception("Exceeded waitlist counts")
         super(CustomQueue3,self).queue_init(event)
 
 
@@ -176,9 +179,7 @@ def reset_trackers():
 def test_connection():
     client = connect_service(
                   timeout=60,
-                  concurrency_queues={
-                      'default': CustomQueue1()
-                  }
+                  concurrency_class=CustomQueue1
               )
     client2 = connect_service(timeout=60)
 
@@ -204,18 +205,31 @@ def test_connection():
     # Should have no call errors
     assert len(CALL_ERRORS) == 0
 
+    client.shutdown()
+
     # --------------------------------------------------------------
     # Clear the trackers since we're going to do new
     # a new set of runs
     reset_trackers()
 
-    # Update to use another queue
-    custom_queue = CustomQueue2()
-    client.configure(
-        concurrency_queues={
-          'default': custom_queue
-        }
-    )
+    # New queue, new client
+    client = connect_service(
+                  timeout=60,
+                  concurrency_class=CustomQueue2
+              )
+
+    # Register new function
+    reg_result = client.register(
+                      'com.izaber.wamp.hello.default',
+                      simple_invoke,
+                      details={
+                          "force_reregister": True,
+                          "match": u"prefix",
+                      },
+                  )
+    assert swampyer.WAMP_REGISTERED == reg_result
+    assert reg_result == swampyer.WAMP_REGISTERED
+
 
     # Let's create a burst of data and we're going to bypass some
     # gates due to the custom queue
@@ -233,28 +247,49 @@ def test_connection():
     # default maximum of 2
 
     # What was the maximum number of concurrent connections?
-    assert TRACKER_MAX['default'] > 2
+    assert TRACKER_MAX['default'] > 2, "Expected >2 got {}".format(TRACKER_MAX['default'])
 
     # We launch 20 jobs but 10 of them bypass the queue. So we expect
     # up to 10 jobs to be queued. We're also testing that we can capture
     # events custom
+    custom_queue = client.concurrency_queue_get('default')
     assert custom_queue.queued_jobs['com.izaber.wamp.hello.default'] <= 10
 
     # Should have no call errors
     assert len(CALL_ERRORS) == 0
+
+    client.shutdown()
 
     # --------------------------------------------------------------
     # Clear the trackers since we're going to do new
     # a new set of runs
     reset_trackers()
 
-    # Update to use another queue
-    custom_queue = CustomQueue3()
-    client.configure(
-        concurrency_queues={
-          'default': custom_queue
-        }
-    )
+    # New queue, new client
+    client = connect_service(
+                  timeout=60,
+                  concurrency_configs={
+                      'default': {
+                        'custom': 'custom value',
+                        '_class': CustomQueue3
+                      }
+                  }
+              )
+
+    # Register new function
+    reg_result = client.register(
+                      'com.izaber.wamp.hello.default',
+                      simple_invoke,
+                      details={
+                          "force_reregister": True,
+                          "match": u"prefix",
+                      },
+                  )
+    assert swampyer.WAMP_REGISTERED == reg_result
+    assert reg_result == swampyer.WAMP_REGISTERED
+
+    # Can we pass custom values through?
+    assert client.concurrency_queue_get('default').custom == 'custom value'
 
     # Let's create a burst of data and we're going to bypass some
     # gates due to the custom queue
@@ -270,9 +305,7 @@ def test_connection():
     assert CALL_ERRORS['default'] > 1
 
     # Then shutdown
-    print("SHUTTING DOWN!1")
     client.shutdown()
-    print("SHUTTING DOWN!2")
     client2.shutdown()
 
 

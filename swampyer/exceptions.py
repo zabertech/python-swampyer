@@ -29,5 +29,8 @@ class ExTransportParseError(ExFatalError):
 class ExShutdown(SwampyException):
     pass
 
+class ExWaitlistFull(SwampyException):
+    pass
+
 # Support for deprecated WAMPConnectionError class
 WAMPConnectionError = ExWAMPConnectionError

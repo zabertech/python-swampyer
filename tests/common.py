@@ -16,7 +16,8 @@ def connect_service(
           url='ws://localhost:18080/ws',
           serializer_code='json',
           concurrency_max=None,
-          concurrency_queues=None,
+          concurrency_class=None,
+          concurrency_configs=None,
           timeout=None
           ):
     password = get_password()
@@ -30,7 +31,8 @@ def connect_service(
                     serializers=[serializer_code],
                     auto_reconnect=False,
                     concurrency_max=concurrency_max,
-                    concurrency_queues=concurrency_queues
+                    concurrency_class=concurrency_class,
+                    concurrency_configs=concurrency_configs
                 ).start()
     return client
 

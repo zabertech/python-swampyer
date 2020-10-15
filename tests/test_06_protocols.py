@@ -19,4 +19,4 @@ def test_connection():
     connect_service(serializer_code='msgpack')
 
 if __name__ == '__main__':
-    print(test_connection())
+    test_connection()

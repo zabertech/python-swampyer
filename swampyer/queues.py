@@ -2,6 +2,7 @@ import threading
 from six.moves import queue
 
 from .common import *
+from .exceptions import *
 from .utils import logger
 
 ID_TRACKER = 0
@@ -56,17 +57,22 @@ class ConcurrencyEvent(object):
 
 class ConcurrencyQueue(threading.Thread):
     def __init__(self,
-                max_concurrent=0,
+                queue_name=None,
+                concurrency_max=0,
+                queue_max=0,
                 loop_timeout=0.1,
+                _class=None,
                 **kwargs
                 ):
         super(ConcurrencyQueue,self).__init__()
         self.queue = queue.Queue()
         self.reset()
+        self.queue_name = queue_name
         self.active = True
         self.daemon = True
         self.configure(
-            max_concurrent = max_concurrent,
+            concurrency_max = concurrency_max,
+            queue_max = queue_max,
             loop_timeout = loop_timeout
         )
         self.init(**kwargs)
@@ -75,10 +81,10 @@ class ConcurrencyQueue(threading.Thread):
         pass
 
     def configure(self, **kwargs):
-        for k in ( 'max_concurrent', 'loop_timeout', ):
-            if k == 'max_concurrent':
-                max_concurrent = kwargs[k]
-                self.max_concurrent = max_concurrent
+        for k in ( 'concurrency_max', 'loop_timeout', 'queue_max' ):
+            if k == 'concurrency_max':
+                concurrency_max = kwargs[k]
+                self.concurrency_max = concurrency_max
                 event = ConcurrencyEvent(EV_MAX_UPDATED)
                 self.queue.put(event)
 
@@ -115,7 +121,7 @@ class ConcurrencyQueue(threading.Thread):
         """
         return len(self.active_threads)
 
-    def waiting_count(self):
+    def waitlist_count(self):
         """ Returns the number of waiting threads
         """
         return len(self.waiting)
@@ -124,7 +130,16 @@ class ConcurrencyQueue(threading.Thread):
         """ Returns True if there is a max concurrency value for the
             queue and it happens to have been reached
         """
-        if self.max_concurrent and self.active_count() >= self.max_concurrent:
+        if self.concurrency_max and self.active_count() >= self.concurrency_max:
+            return True
+        return False
+
+    def waitlist_full(self):
+        """ Returns True if the number of jobs waiting surpasses the allowed
+            value in self.queue_max. If self.queue_max is 0, there's no limit
+            to the number of jobs allowed to wait
+        """
+        if self.queue_max and self.waitlist_count() >= self.queue_max:
             return True
         return False
 
@@ -150,6 +165,9 @@ class ConcurrencyQueue(threading.Thread):
     def job_should_wait(self, event):
         return self.queue_full()
 
+    def job_should_reject(self, event):
+        return self.waitlist_full()
+
     def job_queued(self, event):
         """ Called when an event comes in that exceeds our current queue
             limit
@@ -163,6 +181,12 @@ class ConcurrencyQueue(threading.Thread):
         #  If limit reached, queue for future invocation
         #  If limit not reached, start the runner
         if self.job_should_wait(event):
+
+            # If we have hit the limit for maximum queues, we will throw
+            # an error
+            if self.job_should_reject(event):
+                raise ExWaitlistFull("Queue {} waitlist full".format(self.queue_name))
+
             self.waiting.append(event)
             self.job_queued(event)
             return
