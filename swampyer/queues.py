@@ -1,4 +1,6 @@
+import time
 import threading
+
 from six.moves import queue
 
 from .common import *
@@ -16,6 +18,9 @@ class ConcurrencyRunner(threading.Thread):
         self.daemon = True
         self.handler = handler
         self.message = message
+        self.created_time = time.time()
+        self.started_time = None
+        self.ended_time = None
 
     def start(self, queue):
         """ We provide the Runner the queue to throw events against
@@ -24,6 +29,30 @@ class ConcurrencyRunner(threading.Thread):
         """
         self._queue = queue
         super(ConcurrencyRunner,self).start()
+
+    def stats(self):
+
+        runner_stats = {
+            'created_time': self.created_time,
+            'started_time': self.started_time,
+            'ended_time': self.ended_time,
+            'wait_duration': 0,
+            'run_duration': 0,
+        }
+
+        # If started time is available, we can calculate
+        # how long the runner had to wait before being allowed to execute
+        # the invocation handler
+        if self.started_time:
+            runner_stats['waited_duration'] = self.started_time - self.created_time
+
+        # If the ended time is available, we can calculate how long
+        # the runner had to wait till it had results to send back to the
+        # user
+        if self.ended_time:
+            runner_stats['run_duration'] = self.ended_time - self.started_time
+
+        return runner_stats
 
     def work(self):
         """ Override this function!
@@ -40,8 +69,10 @@ class ConcurrencyRunner(threading.Thread):
             thread finishes
         """
         try:
+            self.started_time = time.time()
             self.work()
         finally:
+            self.ended_time = time.time()
             self._queue.put_exit(self)
 
 class ConcurrencyEvent(object):
@@ -103,6 +134,34 @@ class ConcurrencyQueue(threading.Thread):
             self.queue.task_done()
         self.active_threads = {}
         self.waiting = []
+        self._stats = {
+            'messages': 0,
+            'run': 0,
+            'waited': 0,
+            'waitlist_max': 0,
+            'rejected': 0,
+            'errors': 0,
+            'wait_duration': 0,
+            'run_duration': 0,
+            'wait_duration_avg': 0,
+            'run_duration_avg': 0,
+            'duration_datapoints': 0,
+            'last_reset': time.time(),
+        }
+
+    def stats(self):
+        """ Return the current stats object. Just a simple counter based
+            report on what the client has been up to. Adds one parameter
+            `timestamp` which holds the current epoch time
+        """
+        stats = self._stats.copy()
+        stats['timestamp'] = time.time()
+
+        if stats['duration_datapoints']:
+            stats['wait_duration_avg'] = stats['wait_duration'] / stats['duration_datapoints']
+            stats['run_duration_avg'] = stats['run_duration'] / stats['duration_datapoints']
+
+        return stats
 
     def put(self, runner):
         """ Notify the concurrency loop that we'd like to start a thread
@@ -159,6 +218,7 @@ class ConcurrencyQueue(threading.Thread):
         self.waiting = current_queue.waiting
 
     def work_start(self, event):
+        self._stats['run'] += 1
         event.start(self)
         self.active_threads[event.id] = event
 
@@ -174,6 +234,13 @@ class ConcurrencyQueue(threading.Thread):
         """
         pass
 
+    def job_reject(self, event):
+        """ Called when an event comes in that exceeds our waitlist
+            limit and rejected. Once this function is called, the system
+            will raise the ExWaitlistFull exeception
+        """
+        pass
+
     def queue_init(self, event):
         """ Triggered when a request for a new job is received by the queue
         """
@@ -185,11 +252,17 @@ class ConcurrencyQueue(threading.Thread):
             # If we have hit the limit for maximum queues, we will throw
             # an error
             if self.job_should_reject(event):
+                self._stats['rejected'] += 1
+                self.job_reject(event)
                 raise ExWaitlistFull("Queue {} waitlist full".format(self.queue_name))
 
+            self._stats['waited'] += 1
             self.waiting.append(event)
+            if len(self.waiting) > self._stats['waitlist_max']:
+                self._stats['waitlist_max'] = len(self.waiting)
             self.job_queued(event)
             return
+
         self.work_start(event)
 
     def queue_exit(self, event):
@@ -216,6 +289,13 @@ class ConcurrencyQueue(threading.Thread):
         # has finished running. Rescan the pending items to
         # see if we need to start any additional items
         if event.type in ( EV_EXIT, EV_MAX_UPDATED ):
+
+            # Add to stats how things went
+            event_stats = event.stats()
+            self._stats['wait_duration'] += event_stats['wait_duration']
+            self._stats['run_duration'] += event_stats['run_duration']
+            self._stats['duration_datapoints'] += 1
+
             while self.waiting:
                 if self.queue_full():
                     break
@@ -228,12 +308,14 @@ class ConcurrencyQueue(threading.Thread):
             try:
                 event = self.queue.get(timeout=self.loop_timeout)
                 try:
+                    self._stats['messages'] += 1
                     self.queue_event(event)
 
                 # Got an exception in the queueing, we need to pass
                 # it on.
                 except Exception as ex:
                     try:
+                        self._stats['errors'] += 1
                         event.handle_error(ex)
                     # FIXME: what happens when the exception handler
                     # throws an exception?

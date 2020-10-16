@@ -303,6 +303,10 @@ class WAMPClient(threading.Thread):
         """
         stats = self._stats.copy()
         stats['timestamp'] = time.time()
+        queue_stats = {}
+        for queue_name, concurrency_queue in self._concurrency_queues.items():
+            queue_stats[queue_name] = concurrency_queue.stats()
+        stats['queues'] = queue_stats
         return stats
 
     def is_disconnected(self):
@@ -593,7 +597,7 @@ class WAMPClient(threading.Thread):
         return res
 
     def dispatch_to_awaiting(self,result):
-        """ Send dat ato the appropriate queues
+        """ Send data to the appropriate queues
         """
 
         # If we are awaiting to login, then we might also get
