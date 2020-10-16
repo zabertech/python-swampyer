@@ -253,6 +253,7 @@ class WAMPClient(threading.Thread):
                 'publications': 0,
                 'errors': 0,
                 'last_reset': time.time(),
+                'reconnections': 0,
             }
 
             
@@ -865,6 +866,9 @@ class WAMPClient(threading.Thread):
 
         # Reset the connection
         self.connect(soft_reset=True)
+
+        # Add to the stats
+        self._stats['reconnections'] += 1
 
         # And hello hello
         self.hello()
