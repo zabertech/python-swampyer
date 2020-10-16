@@ -298,9 +298,12 @@ class WAMPClient(threading.Thread):
 
     def stats(self):
         """ Return the current stats object. Just a simple counter based
-            report on what the client has been up to
+            report on what the client has been up to. Adds one parameter
+            `timestamp` which holds the current epoch time
         """
-        return self._stats
+        stats = self._stats.copy()
+        stats['timestamp'] = time.time()
+        return stats
 
     def is_disconnected(self):
         """ returns a true value if the connection is currently dead
