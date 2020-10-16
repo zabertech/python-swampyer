@@ -138,6 +138,8 @@ class ConcurrencyQueue(threading.Thread):
             'messages': 0,
             'run': 0,
             'waited': 0,
+            'running': 0,
+            'waiting': 0,
             'waitlist_max': 0,
             'rejected': 0,
             'errors': 0,
@@ -160,6 +162,9 @@ class ConcurrencyQueue(threading.Thread):
         if stats['duration_datapoints']:
             stats['wait_duration_avg'] = stats['wait_duration'] / stats['duration_datapoints']
             stats['run_duration_avg'] = stats['run_duration'] / stats['duration_datapoints']
+
+        stats['running'] = self.active_count()
+        stats['waiting'] = self.waitlist_count()
 
         return stats
 
