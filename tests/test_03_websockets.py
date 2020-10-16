@@ -9,9 +9,10 @@ import time
 import swampyer
 
 
+logging.basicConfig(stream=sys.stdout, level=30)
 # We want to see the protocol information
 # being exchanged
-logging.basicConfig(stream=sys.stdout, level=1)
+#logging.basicConfig(stream=sys.stdout, level=1)
 
 def hello(event,data):
     return data
@@ -70,5 +71,5 @@ def test_connection():
 
     
 if __name__ == '__main__':
-    print(test_connection())
+    test_connection()
 

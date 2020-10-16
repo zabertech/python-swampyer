@@ -18,6 +18,20 @@ try:
 
     print(client.call("hello"))
 
+    # Print some basic stats on what was done
+    #
+    # client.stats() returns a dict of:
+    # 
+    # messages: number of WAMP messages received
+    # invocations: invocations messages received
+    # calls: calls made
+    # events: publication events received
+    # publications: publications made
+    # errors: error messages received
+    # last_reset: epoch time of last reset of stats
+    # 
+    print(client.stats())
+
 except swampyer.SwampyException as ex:
     print("Whoops, something went wrong: {}".format(ex))
 

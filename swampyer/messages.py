@@ -81,7 +81,6 @@ class WampMessage(object):
     def loads(data_str):
         # First column in list is always WAMP type code
         print("WampMessage.loads is a deprecated method. Please use transport.serializer instead")
-        traceback.print_stack()
         data = self.serializer.loads(data_str)
         if not data: return
         message_code = data[0]
@@ -115,7 +114,6 @@ class WampMessage(object):
 
     def as_str(self):
         print("WampMessage.as_str is a deprecated method. Please use transport.serializer instead")
-        traceback.print_stack()
         return self.serializer.dumps(self.package())
 
     def get(self, k, default=None):

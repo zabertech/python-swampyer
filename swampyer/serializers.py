@@ -4,6 +4,7 @@ import ssl
 import stat
 import time
 import struct
+import decimal
 
 import socket
 import websocket
