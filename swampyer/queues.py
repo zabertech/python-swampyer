@@ -81,8 +81,16 @@ class ConcurrencyEvent(object):
         self.runner = runner
         self.id = runner and runner.concurrency_id
 
+    def handle_error(self, ex):
+        """ handle_error is only relevant if there's a runner associated
+        """
+        if self.runner:
+            self.runner.handle_error(ex)
+
     def __getattr__(self, k):
-        return getattr(self.runner,k)
+        if self.runner:
+            return getattr(self.runner,k)
+        raise AttributeError('ConcurrencyEvent has no runner so no attribute {k}'.format(k))
 
     __getitem__ = __getattr__
 
