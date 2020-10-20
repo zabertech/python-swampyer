@@ -112,4 +112,5 @@
 * Refactor to allow subclassing and customizing how invocation/subscription event queues are managed
 * Add some very basic stats to client (messages, invocations, calls, etc). `client.stats()` will return a small dict
 
-
+2.20201020 - Tue Oct 20 10:16:16 PDT 2020
+* Queue events without runners should be handled a bit more gracefully
