@@ -181,8 +181,14 @@ class WebsocketTransport(Transport):
             return
         except websocket.WebSocketConnectionClosedException as ex:
             raise ExWAMPConnectionError(ex)
-        except (ExWAMPConnectionError, socket.error) as ex:
-            raise 
+        except OSError as ex:
+            # Intended to catch Windows Socket error WSAECONNRESET (10054) which is otherwise unhandled.
+            # https://docs.microsoft.com/en-ca/windows/win32/winsock/windows-sockets-error-codes-2
+            if ex.errno == 10054:
+                raise ExWAMPConnectionError(ex)
+            raise
+        except ExWAMPConnectionError:
+            raise
 
 
 class RawsocketTransport(Transport):
