@@ -154,7 +154,7 @@ class WebsocketTransport(Transport):
         """ Returns the next  buffer element
         """
         try:
-            opcode, data = self.socket.recv_data(control_frame=True)
+            opcode, data = self.recv_data(control_frame=True)
 
             if opcode == websocket.ABNF.OPCODE_TEXT:
                 # Try to decode the data as a utf-8 string. Replace any inconvertible characters
@@ -189,7 +189,6 @@ class WebsocketTransport(Transport):
             raise
         except ExWAMPConnectionError:
             raise
-
 
 class RawsocketTransport(Transport):
     """
