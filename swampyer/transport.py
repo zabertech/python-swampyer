@@ -154,7 +154,7 @@ class WebsocketTransport(Transport):
         """ Returns the next  buffer element
         """
         try:
-            opcode, data = self.socket.recv_data(control_frame=True)
+            opcode, data = self.recv_data(control_frame=True)
 
             if opcode == websocket.ABNF.OPCODE_TEXT:
                 # Try to decode the data as a utf-8 string. Replace any inconvertible characters
@@ -181,9 +181,14 @@ class WebsocketTransport(Transport):
             return
         except websocket.WebSocketConnectionClosedException as ex:
             raise ExWAMPConnectionError(ex)
-        except (ExWAMPConnectionError, socket.error) as ex:
-            raise 
-
+        except OSError as ex:
+            # Intended to catch Windows Socket error WSAECONNRESET (10054) which is otherwise unhandled.
+            # https://docs.microsoft.com/en-ca/windows/win32/winsock/windows-sockets-error-codes-2
+            if ex.errno == 10054:
+                raise ExWAMPConnectionError(ex)
+            raise
+        except ExWAMPConnectionError:
+            raise
 
 class RawsocketTransport(Transport):
     """
