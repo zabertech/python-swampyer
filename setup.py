@@ -3,7 +3,7 @@
 from setuptools import setup, find_packages
 
 setup(name='swampyer',
-      version='2.20201020',
+      version='2.20201210',
       description='Simple WAMP library with minimal external dependencies',
       url = 'https://github.com/zabertech/python-swampyer',
       download_url = 'https://github.com/zabertech/python-swampyer/archive/2.20201020.tar.gz',

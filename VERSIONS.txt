@@ -114,3 +114,6 @@
 
 2.20201020 - Tue Oct 20 10:16:16 PDT 2020
 * Queue events without runners should be handled a bit more gracefully
+
+2.20201210 - Thu Dec 10 08:00:46 UTC 2020
+* Fix regression: Handle Windows Socket error 10054
