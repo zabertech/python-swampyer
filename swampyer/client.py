@@ -2,7 +2,10 @@ from __future__ import unicode_literals
 
 import re
 import io
-import json
+try:
+    import simplejson as json
+except ImportError:
+    import json
 import time
 import ctypes
 import threading
