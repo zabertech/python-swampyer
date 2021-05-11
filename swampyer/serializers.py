@@ -41,6 +41,10 @@ class JSONSerializer(Serializer):
                 without making nasty customizations to WAMP JSON
             """
             def default(self, obj):
+                if isinstance(obj, memoryview):
+                    return self.default(bytes(obj))
+                if isinstance(obj, bytes):
+                    return obj.decode()
                 if isinstance(obj, decimal.Decimal):
                     return float(obj)
                 return json_module.JSONEncoder.default(self, obj)
