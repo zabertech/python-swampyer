@@ -13,7 +13,7 @@ setup(name='swampyer',
       packages=['swampyer'],
       scripts=[],
       test_suite='tests',
-      extras_requires={
+      extra_requires={
           'dev': ["crossbar"],
           'cbor': ["cbor"],
           'msgpack': ["msgpack"],
