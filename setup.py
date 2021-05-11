@@ -24,6 +24,7 @@ setup(name='swampyer',
           'certifi',
           'six',
           'setuptools',
+          'simplejson'
       ],
       dependency_links=[],
       zip_safe=False)
