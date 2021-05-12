@@ -8,17 +8,12 @@ USER root
 
 RUN groupadd -g ${GID} zaber \
     && useradd -m -u ${UID} -d /home/zaber -g zaber zaber \
-    ;
-
-COPY --chown=zaber:zaber . /app
-WORKDIR /app
-
-# Add the python repo
-RUN apt update \
+    && apt update \
     && apt install -y software-properties-common \
     && add-apt-repository ppa:deadsnakes/ppa \
     && apt install -y \
             vim-nox \
+            tmux \
             python2.7 \
             python2.7-dev \
             python3.6 \
@@ -43,10 +38,12 @@ RUN apt update \
 
 USER zaber
 
+COPY --chown=zaber:zaber . /app
+WORKDIR /app
+
 RUN    curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python3 - \
     && /home/zaber/.poetry/bin/poetry install \
     ;
-
 
 # Then this will execute the test command
 CMD /bin/bash

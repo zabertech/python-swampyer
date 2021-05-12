@@ -48,6 +48,11 @@ class JSONSerializer(Serializer):
             def default(self, obj):
                 if isinstance(obj, decimal.Decimal):
                     return float(obj)
+                elif isinstance(obj, memoryview):
+                    return self.default(bytes(obj))
+                elif isinstance(obj, bytes):
+                    return obj.decode()
+
                 return json_module.JSONEncoder.default(self, obj)
         self.json_encoder = WampJSONEncoder
 

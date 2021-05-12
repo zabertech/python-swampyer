@@ -30,6 +30,12 @@ def test_connection():
     call_result = client2.call('com.izaber.wamp.hello','something')
     assert call_result == 'something'
 
+    # Send some binary data
+    binary_data = b'\xEF\xBB\xBF\x00'
+    call_result = client2.call('com.izaber.wamp.hello',binary_data)
+    assert call_result
+    assert call_result.encode('utf8') == binary_data
+
     # Let's unregister then
     unreg_result = client.unregister(reg_result.registration_id)
     assert unreg_result == swampyer.WAMP_UNREGISTERED
