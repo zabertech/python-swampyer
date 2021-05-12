@@ -6,8 +6,9 @@ verify_ssl = true
 [dev-packages]
 pytest = "*"
 tox = "*"
+twisted = "==19.7.0"
 pipenv-to-requirements = "*"
-crossbar = "*"
+crossbar = "==20.8.1"
 twine = "*"
 cbor = "*"
 msgpack = "*"
@@ -16,6 +17,7 @@ msgpack = "*"
 certifi = "*"
 six = "*"
 websocket_client = "*"
+cbor2 = "*"
 
 [requires]
 python_version = "3"
