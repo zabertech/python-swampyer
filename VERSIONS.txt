@@ -117,3 +117,10 @@
 
 2.20201210 - Thu Dec 10 08:00:46 UTC 2020
 * Fix regression: Handle Windows Socket error 10054
+
+2.20210512 - Wed May 12 18:34:51 UTC 2021
+* Convert to pyproject.toml/poetry based project
+* Use docker for build testing
+* Upgrade to simplejson for latest bugfixes, falling back on json
+* Teach json serializer how to do memoryview and bytes
+* Correct typo in extra_requires

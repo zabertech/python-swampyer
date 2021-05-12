@@ -25,6 +25,11 @@ class Serializer(object):
     # Used to indicate if this is a binary protocol (or not)
     binary = None
 
+    @classmethod
+    def available(cls):
+        return True
+
+
 @register_serializer('json')
 class JSONSerializer(Serializer):
     binary = False
@@ -43,9 +48,18 @@ class JSONSerializer(Serializer):
             def default(self, obj):
                 if isinstance(obj, decimal.Decimal):
                     return float(obj)
+                elif isinstance(obj, memoryview):
+                    return self.default(bytes(obj))
+                elif isinstance(obj, bytes):
+                    return obj.decode()
+
                 return json_module.JSONEncoder.default(self, obj)
         self.json_encoder = WampJSONEncoder
 
+    @classmethod
+    def available(cls):
+        __import__('json')
+        return True
 
     def dumps(self,data):
         return self.json.dumps(data, cls=self.json_encoder)
@@ -57,8 +71,22 @@ class JSONSerializer(Serializer):
 class CBORSerializer(Serializer):
     binary = True
 
+    @classmethod
+    def available(cls):
+        try:
+            __import__('cbor2')
+        except:
+            __import__('cbor')
+        return True
+
     def __init__(self):
-        self.cbor = __import__('cbor')
+        try:
+            self.cbor = __import__('cbor2')
+        except:
+            try:
+                self.cbor = __import__('cbor')
+            except:
+                pass
         cbor_module = self.cbor
 
     def dumps(self,data):
@@ -71,6 +99,11 @@ class CBORSerializer(Serializer):
 @register_serializer('msgpack')
 class MsgPackSerializer(Serializer):
     binary = True
+
+    @classmethod
+    def available(cls):
+        __import__('msgpack')
+        return True
 
     def __init__(self):
         self.msgpack = __import__('msgpack')
@@ -93,7 +126,7 @@ def available_serializers():
         if serializer in SERIALIZERS_BLACKLIST:
             continue
         try:
-            __import__(serializer)
+            serializer.available()
             serializers.append(serializer)
         except Exception:
             pass
