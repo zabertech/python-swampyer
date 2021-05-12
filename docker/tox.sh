@@ -2,7 +2,5 @@
 
 . /home/zaber/.poetry/env
 
-/bin/bash
-
-#poetry shell
+poetry run tox
 

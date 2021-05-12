@@ -6,13 +6,6 @@
 IMAGE_NAME=${IMAGE_NAME:=python/swampyer}
 CONTAINER_NAME=${CONTAINER_NAME:=swampyer}
 
-CBDIR=${CBDIR:=/app/nexus/data}
-#LOG_LEVEL=${LOG_LEVEL:=debug}
-#LOG_COLOURS=${LOG_COLOURS:=true}
-#LOG_FORMAT=${LOG_FORMAT:=standard}
-#PORT_PLAINTEXT=${PORT_PLAINTEXT:=8282}
-#PORT_SSL=${PORT_SSL:=443}
-
 help () {
 cat << HELP
 Usage: run.sh [COMMAND] [ARGUMENTS]...
@@ -49,12 +42,6 @@ COMMANDS:
 HELP
 }
 
-# Please do not change the default behaviour of logging
-# In fact, the system uses invoke.sh to capture the 
-# stdout and stderr for dumping into the ./logs directory
-# automatically via tee.
-LOG_TO_FILE=${LOG_TO_FILE:=''}
-
 build_docker_image () {
   echo "Creating the ${IMAGE_NAME} docker image"
   docker build -t $IMAGE_NAME .
@@ -67,8 +54,7 @@ upsert_docker_image () {
 }
 
 default_invoke_command () {
-  #INVOKE_COMMAND="/app/nexus/run-server.sh"
-  INVOKE_COMMAND="tmux new -s nexus /repo/nexus/run-server.sh"
+  INVOKE_COMMAND="/app/docker/tox.sh"
 }
 
 launch_container () {
