@@ -3,6 +3,7 @@
 from common import *
 import logging
 import sys
+import time
 
 import swampyer
 
@@ -13,7 +14,9 @@ logging.basicConfig(stream=sys.stdout, level=30)
 #logging.basicConfig(stream=sys.stdout, level=1)
 
 def test_connection():
-    connect_service()
+    cli = connect_service()
+    time.sleep(1)
+    return cli
 
 if __name__ == '__main__':
-    print(connect_service())
+    print(test_connection())
