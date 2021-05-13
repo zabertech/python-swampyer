@@ -124,3 +124,7 @@
 * Upgrade to simplejson for latest bugfixes, falling back on json
 * Teach json serializer how to do memoryview and bytes
 * Correct typo in extra_requires
+
+2.20210513 - Thu May 13 14:46:32 UTC 2021
+* Fix serializer discovery bug (was invoking available() on name, not object)
+
