@@ -122,12 +122,12 @@ def available_serializers():
     """
     serializers = []
 
-    for serializer in SERIALIZER_REGISTRY.keys():
-        if serializer in SERIALIZERS_BLACKLIST:
+    for serializer_name, serializer in SERIALIZER_REGISTRY.items():
+        if serializer_name in SERIALIZERS_BLACKLIST:
             continue
         try:
             serializer.available()
-            serializers.append(serializer)
+            serializers.append(serializer_name)
         except Exception:
             pass
 

@@ -14,13 +14,16 @@ def get_password():
 
 def connect_service(
           url='ws://localhost:18080/ws',
-          serializer_code='json',
+          serializer_code=None,
           concurrency_max=None,
           concurrency_class=None,
           concurrency_configs=None,
           timeout=None
           ):
     password = get_password()
+    serializers = None
+    if serializer_code:
+        serializers = [ serializer_code ]
     client = swampyer.WAMPClientTicket(
                     url=url,
                     username=u"test",
@@ -28,7 +31,7 @@ def connect_service(
                     realm=u"realm1",
                     uri_base="",
                     timeout=timeout,
-                    serializers=[serializer_code],
+                    serializers=serializers,
                     auto_reconnect=False,
                     concurrency_max=concurrency_max,
                     concurrency_class=concurrency_class,
