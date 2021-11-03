@@ -16,9 +16,12 @@ Install by using:
 
 ## Development
 
-The targets are `python2.7`, `python3.6` and up.
+The targets are `python3.6` and up. `python 2.7` support was dropped in version `3.0.20211103`. For 2.7 support use:
 
-The development environment requires `python3.6` as the `crossbar.io` based test server is unable to run in `python2.7`.
+```
+# For Python 2.7 support
+pip install swampyer=2.20210513
+```
 
 Tox is used to automate the testing between the various python versions.
 
