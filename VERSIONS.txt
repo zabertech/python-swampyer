@@ -124,3 +124,11 @@
 * Upgrade to simplejson for latest bugfixes, falling back on json
 * Teach json serializer how to do memoryview and bytes
 * Correct typo in extra_requires
+
+2.20210513 - Thu May 13 14:46:32 UTC 2021
+* Fix serializer discovery bug (was invoking available() on name, not object)
+
+3.0.20211103 - Wed Nov  3 23:41:39 UTC 2021
+* Drop Python 2.7 support
+* Allow newer versions of libraries (don't restrict them so tightly for the sake of 2.7 support)
+
