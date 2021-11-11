@@ -6,12 +6,13 @@ sysrand = random.SystemRandom()
 class FIELD(object):
     default = None
 
-    def __init__(self, name, default=None, required=True):
+    def __init__(self, name, default=None, required=True, hide_from_debug=False):
         self.name = name
         if default:
             self.default = default
         self.value = None
         self.required = required
+        self.hide_from_debug = hide_from_debug
 
     def default_value(self):
         return self.default

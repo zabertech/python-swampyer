@@ -132,3 +132,7 @@
 * Drop Python 2.7 support
 * Allow newer versions of libraries (don't restrict them so tightly for the sake of 2.7 support)
 
+3.0.20211110 - Wed Nov 10 16:27:59 PST 2021
+* Add Python 3.10 support
+* Do not show raw password in protocol debug. Replace with '******' instead
+

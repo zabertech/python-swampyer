@@ -293,7 +293,7 @@ class WAMPClient(threading.Thread):
             event = threading.Event()
             thread = threading.Thread(
                 target=self.start_heartbeat, args=(event,))
-            thread.setDaemon(True)
+            thread.daemon = True
             thread.start()
             self.heartbeat_thread = thread
 

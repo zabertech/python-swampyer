@@ -15,12 +15,11 @@ RUN groupadd -g ${GID} zaber \
     && apt install -y \
             vim-nox \
             tmux \
-            python2.7 \
-            python2.7-dev \
             python3.6 \
             python3.7 \
             python3.8 \
             python3.9 \
+            python3.10 \
             libxml2-dev \
             libxslt1-dev \
             build-essential \
@@ -29,16 +28,18 @@ RUN groupadd -g ${GID} zaber \
             python3.7-dev \
             python3.8-dev \
             python3.9-dev \
+            python3.10-dev \
             libssl-dev \
             curl \
             python3-distutils \
+            python3.10-distutils \
     && curl https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py \
-    && curl https://bootstrap.pypa.io/pip/2.7/get-pip.py -o /tmp/get-pip-2.7.py \
+    && apt install python3-distutils \
     && python3.6 /tmp/get-pip.py -q \
     && python3.7 /tmp/get-pip.py -q \
     && python3.8 /tmp/get-pip.py -q \
     && python3.9 /tmp/get-pip.py -q \
-    && python2.7 /tmp/get-pip-2.7.py \
+    && python3.10 /tmp/get-pip.py -q \
     && pip3 install crossbar \
     && ls -l /tmp/ \
     ;
