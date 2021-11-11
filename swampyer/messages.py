@@ -14,7 +14,7 @@ MESSAGE_TYPES = dict(
     WELCOME      = [ CODE('code',2), ID('session_id'), DICT('details') ],
     ABORT        = [ CODE('code',3), DICT('details'), URI('reason') ],
     CHALLENGE    = [ CODE('code',4), STRING('auth_method'), DICT('extra') ],
-    AUTHENTICATE = [ CODE('code',5), STRING('signature'), DICT('extra') ],
+    AUTHENTICATE = [ CODE('code',5), STRING('signature', hide_from_debug=True), DICT('extra') ],
     GOODBYE      = [ CODE('code',6), DICT('details'), URI('reason') ],
     ERROR        = [ CODE('code',8), CODE('request_code'), ID('request_id'),
                       DICT('details'), URI('error',**OPT),
@@ -96,20 +96,30 @@ class WampMessage(object):
             self[field.name] = value
         return self
 
-    def package(self):
+    def package(self, debug=False):
+        """ If the debug is set to True, this will exclude any field marked `hide_from_debug`
+            from the resulting send package.
+        """
         record = []
         for field in self._fields:
-            record.append(self[field.name])
+            if debug and field.hide_from_debug:
+                record.append('******')
+            else:
+                record.append(self[field.name])
         return record
 
     def dump(self):
-        s = u"JSON({})={}".format(self.code_name,self)
+        serialized = self.serializer.dumps(self.package(debug=True))
+        s = u"JSON({})={}".format(self.code_name,serialized)
         s += u"\n--[{}]----------------------------\n".format(self.code_name)
         for field in self._fields:
-            s += u'{}: {}\n'.format(
-                          field.name,
-                          self[field.name]
-                      )
+            if field.hide_from_debug:
+                s += u'{}: ******\n'.format(field.name)
+            else:
+                s += u'{}: {}\n'.format(
+                              field.name,
+                              self[field.name]
+                          )
         return s
 
     def as_str(self):
