@@ -78,14 +78,15 @@ class WampMessage(object):
         return message_class().unpackage(data)
 
     @staticmethod
-    def loads(data_str):
-        # First column in list is always WAMP type code
-        print("WampMessage.loads is a deprecated method. Please use transport.serializer instead")
-        data = self.serializer.loads(data_str)
+    def loads(data_str, serializer=None):
+        # If we're calling from another message, let's use that message's 
+        data = load_serializer(serializer or 'json').loads(data_str)
         if not data: return
+        # First column in list is always WAMP type code
         message_code = data[0]
         message_class = MESSAGE_CLASS_LOOKUP[message_code]
         return message_class().unpackage(data)
+
 
     def unpackage(self,data):
         if len(data) > len(self._fields):
@@ -123,7 +124,6 @@ class WampMessage(object):
         return s
 
     def as_str(self):
-        print("WampMessage.as_str is a deprecated method. Please use transport.serializer instead")
         return self.serializer.dumps(self.package())
 
     def get(self, k, default=None):
@@ -150,13 +150,26 @@ class WampMessage(object):
         return self.serializer.dumps(self.package())
 
     def __eq__(self,other):
+
+        # Compare instance to integer (using integer WAMP message codes)
         if isinstance(other,six.integer_types):
             return self.code == other
+
+        # Comparing instance to class
+        if isinstance(other, type):
+            return type(self) == other
+
         return self == other
 
     def __ne__(self,other):
+        # Compare instance to integer (using integer WAMP message codes)
         if isinstance(other,six.integer_types):
             return self.code != other
+
+        # Comparing instance to class
+        if isinstance(other, type):
+            return type(self) != other
+
         return self != other
 
 ##############################################################

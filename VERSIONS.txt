@@ -136,3 +136,8 @@
 * Add Python 3.10 support
 * Do not show raw password in protocol debug. Replace with '******' instead
 
+3.0.20211117 - Wed Nov 17 14:16:34 PST 2021
+* Fix issue where WampMessage.loads would throw NameError exception
+* Improve message matching where WampMessage instance can be == with class
+
+

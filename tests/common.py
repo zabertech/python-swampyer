@@ -1,5 +1,3 @@
-import six
-
 try:
     import swampyer 
 except:
@@ -27,7 +25,7 @@ def connect_service(
     client = swampyer.WAMPClientTicket(
                     url=url,
                     username=u"test",
-                    password=six.u(password),
+                    password=password,
                     realm=u"realm1",
                     uri_base="",
                     timeout=timeout,
