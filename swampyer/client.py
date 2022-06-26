@@ -779,6 +779,7 @@ class WAMPClient(threading.Thread):
             till we reconnect
         """
         logger.debug("Disconnecting")
+        print("DISCONNECTING")
 
         # Close off the transport 
         if self.transport:

@@ -12,7 +12,7 @@ RUN groupadd -g ${GID} zaber \
     && apt update \
     && apt install -y software-properties-common \
     && add-apt-repository ppa:deadsnakes/ppa \
-    && apt install -y \
+    && DEBIAN_FRONTEND=noninteractive apt install -y \
             vim-nox \
             tmux \
             python3.6 \
@@ -34,8 +34,16 @@ RUN groupadd -g ${GID} zaber \
             python3-distutils \
             python3.10-distutils \
     && curl https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py \
-    && apt install python3-distutils \
-    && python3.6 /tmp/get-pip.py -q \
+    && curl https://bootstrap.pypa.io/pip/3.6/get-pip.py -o /tmp/get-pip-3.6.py \
+    && DEBIAN_FRONTEND=noninteractive apt install -y \
+            python3-distutils \
+            python3-apt \
+            python3.6-distutils \
+            python3.7-distutils \
+            python3.8-distutils \
+            python3.9-distutils \
+            python3.10-distutils \
+    && python3.6 /tmp/get-pip-3.6.py -q \
     && python3.7 /tmp/get-pip.py -q \
     && python3.8 /tmp/get-pip.py -q \
     && python3.9 /tmp/get-pip.py -q \

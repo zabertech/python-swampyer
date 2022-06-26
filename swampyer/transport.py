@@ -324,10 +324,18 @@ class RawsocketTransport(Transport):
         message_type = message_preamble & 0b00000111
 
         # If it's a regular message, the next 3 bytes denote the length of the upcoming
-        # serialized data
+        # serialized data. We will convert that into the expected data length then
+        # attempt to read that many bytes from the socket
         if message_type == RAWSOCKET_MESSAGE_TYPE_REGULAR:
-            message_length = struct.unpack('!I', message_contents + b'\0')[0]
-            message_payload = self.socket.recv(message_length)
+            message_length = struct.unpack('!I', b'\0'+message_contents)[0]
+            expected_bytes = message_length
+            message_payload = b''
+            while expected_bytes:
+                received_data = self.socket.recv(expected_bytes)
+                if len(received_data) <= 0:
+                    break
+                message_payload += received_data
+                expected_bytes -= len(received_data)
             return message_payload
 
         # We don't do anything here since crossbar doesn't support ping/pong
@@ -393,6 +401,44 @@ class TcpipsocketTransport(RawsocketTransport):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect((self.host, self.port))
         return sock
+
+
+@register_transport('tcpips')
+class SecureTcpipsocketTransport(RawsocketTransport):
+    socket_path = None
+    host = None
+    port = None
+
+    def init(self, **options):
+        m = re.search(r'tcpips://([\w\.]+):(\d+)',self.url)
+        if not m:
+            raise ExTransportParseError('Require tcpips://host:port syntax for Secure Rawsocket Connection')
+        self.host = m.group(1)
+        self.port = int(m.group(2))
+
+    def create_socket(self):
+        try:
+            import ssl
+
+            context = ssl.create_default_context()
+
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.connect((self.host, self.port))
+
+            sock = socket.create_connection((self.host, self.port))
+            ssock = context.wrap_socket(sock, server_hostname=self.host)
+
+            return ssock
+        except ModuleNotFoundError as ex:
+            raise ExFatalError("No SSL module found! Cannot connect via SSL: {ex_type.__name__}<{ex}>".format(
+                    ex=ex,
+                    ex_type=type(ex),
+                ))
+        except Exception as ex:
+                logger.warn("SSL Connection attempt failed: {ex_type.__name__}<{ex}>".format(
+                    ex=ex,
+                    ex_type=type(ex),
+                ))
 
 
 def get_transport(url, **options):

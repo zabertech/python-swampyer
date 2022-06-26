@@ -140,4 +140,6 @@
 * Fix issue where WampMessage.loads would throw NameError exception
 * Improve message matching where WampMessage instance can be == with class
 
-
+3.0.20220626 - Sun Jun 26 11:57:38 PDT 2022
+* Fix RawSocket connections when recv returns fewer bytes than wanted
+* Add SSL RawSocket support
