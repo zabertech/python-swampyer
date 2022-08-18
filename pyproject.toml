@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "swampyer"
 description = "Simple WAMP library with minimal external dependencies"
-version = '2.20210512'
+version = '2.20220818'
 authors = ["Aki Mimoto <aki@zaber.com>"]
 
 [build-system]
@@ -11,7 +11,7 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry.dependencies]
 python = ">=2.7,<3.0.0 || >=3.5.0,<4.0"
 websocket-client = "^0.59.0"
-certifi = "^2020.12.5"
+certifi = ">=2020.12.5"
 six = "^1.16.0"
 cbor = { version = "^1.0.0", optional = true }
 msgpack = { version = "^1.0.2", optional = true }

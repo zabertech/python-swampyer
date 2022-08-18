@@ -124,3 +124,8 @@
 * Upgrade to simplejson for latest bugfixes, falling back on json
 * Teach json serializer how to do memoryview and bytes
 * Correct typo in extra_requires
+
+2.20220818 - Thu Aug 18 15:11:59 PDT 2022
+* When transport.next repeatedly throws an SSLError, it creates an issue where the main loop will just keep looping wildly. In this case, we should let the system report the error then reconnect (SSLErrors should trigger a reconnection)
+* By default, the system was opting to use CBOR or Msgpack. In py2, `str` gets encoded as a binary field. This makes nexus very unhappy and it bails on the request with a "WAMP Protocol Error ('options' in REGISTER: invalid type <class 'bytes'> for key in WAMP extra ('b'force_reregister''))"
+
