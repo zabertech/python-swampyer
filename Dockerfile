@@ -18,28 +18,20 @@ RUN groupadd -g ${GID} zaber \
             python2.7 \
             python2.7-dev \
             python3.6 \
-            python3.7 \
-            python3.8 \
-            python3.9 \
             libxml2-dev \
             libxslt1-dev \
             build-essential \
             pypy3-dev \
             python3.6-dev \
-            python3.7-dev \
-            python3.8-dev \
-            python3.9-dev \
+            python3.6-distutils \
             libssl-dev \
             curl \
             python3-distutils \
-    && curl https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py \
+    && curl https://bootstrap.pypa.io/pip/3.6/get-pip.py -o /tmp/get-pip.py \
     && curl https://bootstrap.pypa.io/pip/2.7/get-pip.py -o /tmp/get-pip-2.7.py \
     && python3.6 /tmp/get-pip.py -q \
-    && python3.7 /tmp/get-pip.py -q \
-    && python3.8 /tmp/get-pip.py -q \
-    && python3.9 /tmp/get-pip.py -q \
     && python2.7 /tmp/get-pip-2.7.py \
-    && pip3 install crossbar \
+    && pip3 install autobahn==21.1.1 crossbar==21.1.1 twisted[tls,conch,http2]==20.3.0 \
     && ls -l /tmp/ \
     ;
 

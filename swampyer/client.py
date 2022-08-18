@@ -2,6 +2,7 @@ from __future__ import unicode_literals
 
 import re
 import io
+import ssl
 import json
 import time
 import ctypes
@@ -107,6 +108,9 @@ class WAMPClient(threading.Thread):
     heartbeat_timeout = 10
     ping_interval = 3
 
+    unhandled_exceptions_max = None
+    unhandled_exceptions_increment = None
+
     auto_reconnect = True
 
     session_id = None
@@ -156,6 +160,8 @@ class WAMPClient(threading.Thread):
                 concurrency_configs=None,
                 concurrency_strict_naming=True,
                 concurrency_queues=None,
+                unhandled_exceptions_max=25,
+                unhandled_exceptions_increment=0.2
                 ):
 
         self._state = STATE_DISCONNECTED
@@ -185,6 +191,8 @@ class WAMPClient(threading.Thread):
             concurrency_class = concurrency_class,
             concurrency_configs = concurrency_configs,
             concurrency_strict_naming = concurrency_strict_naming,
+            unhandled_exceptions_max = unhandled_exceptions_max,
+            unhandled_exceptions_increment = unhandled_exceptions_increment,
         )
 
     def get_full_uri(self,uri):
@@ -202,7 +210,11 @@ class WAMPClient(threading.Thread):
 
         options.setdefault('sslopt',self.sslopt)
         options.setdefault('loop_timeout',self.loop_timeout)
-        options.setdefault('serializers',self.serializers)
+        # In python 2.7 since strs are converted to binary in cbor and
+        # msgpack, we're going to default to json. If this isn't done
+        # nexus starts to blow up with annoying messages about not expecting
+        # a binary value and barfing on requests
+        options.setdefault('serializers',self.serializers or ['json'])
 
         # Attempt connection once unless it's autoreconnect in which
         # case we try and try again...
@@ -329,7 +341,9 @@ class WAMPClient(threading.Thread):
                   'concurrency_max',
                   'concurrency_queue_max',
                   'concurrency_configs',
-                  'concurrency_strict_naming'
+                  'concurrency_strict_naming',
+                  'unhandled_exceptions_max',
+                  'unhandled_exceptions_increment'
                   ):
 
             if k in kwargs:
@@ -926,6 +940,16 @@ class WAMPClient(threading.Thread):
         """
         data = None
 
+        # This allows us to slow down a tight spin on errors should they happen
+        # With some of the exceptions, we know what to do, such as reconnect or
+        # ignore. However, sometimes we end up with strange errors that force us
+        # reattempt, some are just hiccups so we often just need to ignore.
+        # However, sometimes the errors happen and occur very rapidly so we'll
+        # need to keep track of how quickly it happens. When it happens quickly
+        # in a row, we'll want to start throttling the reattempts up to the point
+        # where we'll force a reconnection
+        stacked_unhandled_exceptions = 0
+
         while not self._request_shutdown:
 
             # Find out if we have any data pending from the
@@ -970,8 +994,8 @@ class WAMPClient(threading.Thread):
                 return
             except io.BlockingIOError:
                 continue
-            except (ExWAMPConnectionError) as ex:
-                logger.debug("Transport Exception. Requesting disconnect:".format(ex))
+            except (ExWAMPConnectionError, ssl.SSLError) as ex:
+                logger.debug("ERROR Transport Exception {}<{}>. Requesting disconnect:".format(type(ex), ex))
                 self._state = STATE_DISCONNECTED
                 self.stop_heartbeat()
                 self.disconnect()
@@ -987,17 +1011,56 @@ class WAMPClient(threading.Thread):
                     t = threading.Thread(target=reconnect)
                     t.start()
 
+                    # Since we're reconnecting, flush the exceptions count
+                    stacked_unhandled_exceptions = 0
+
                     # FIXME: need to randomly wait
                     time.sleep(1)
                     if not data: continue
             except Exception as ex:
+                delay = stacked_unhandled_exceptions*self.unhandled_exceptions_increment
                 logger.error(
-                    "ERROR in main loop: {ex}\n{traceback}".format(
+                    "ERROR in transport receive main loop. Delaying {delay} seconds: {ex}\n{traceback}".format(
                         ex=ex,
+                        delay=delay,
                         traceback=traceback.format_exc(),
                     )
                   )
+                if stacked_unhandled_exceptions:
+                    # Too many reconnections? In that case we'll force a reconnection
+                    if stacked_unhandled_exceptions >= self.unhandled_exceptions_max:
+                        logger.debug("ERROR Transport Exception {}<{}>. Requesting disconnect:".format(type(ex), ex))
+                        self._state = STATE_DISCONNECTED
+                        self.stop_heartbeat()
+                        self.disconnect()
+
+                        # If the server disconnected, let's try and reconnect
+                        # back to the service after a random few seconds
+                        if self.auto_reconnect:
+                            # As doing a reconnect would block and would then
+                            # prevent us from ticking the websoocket, we'll
+                            # go into a subthread to deal with the reconnection
+                            def reconnect():
+                                self.reconnect()
+                            t = threading.Thread(target=reconnect)
+                            t.start()
+
+                            # FIXME: need to randomly wait
+                            time.sleep(1)
+
+                        # Since we're reconnecting, flush the exceptions count
+                        stacked_unhandled_exceptions = 0
+                        continue
+
+                    else:
+                        time.sleep(delay)
+                stacked_unhandled_exceptions += 1
                 continue
+
+            # If no exceptions have been triggered, we'll decrement the error pressure
+            else:
+                if stacked_unhandled_exceptions:
+                    stacked_unhandled_exceptions -= 1
 
             try:
                 logger.debug("<RCV: {}".format(data))
@@ -1012,7 +1075,7 @@ class WAMPClient(threading.Thread):
                 except AttributeError as ex:
                     self.handle_unknown(message)
             except Exception as ex:
-                logger.error("ERROR in main loop when receiving: {ex}\n{traceback}".format(
+                logger.error("ERROR in process message main loop when receiving: {ex}\n{traceback}".format(
                     ex=ex,
                     traceback=traceback.format_exc(),
                 ))

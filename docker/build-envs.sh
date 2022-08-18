@@ -10,7 +10,4 @@ create_work_env() {
 }
 
 create_work_env "2.7"
-create_work_env "3.6"
-create_work_env "3.7"
-create_work_env "3.8"
-create_work_env "3.9"
+
