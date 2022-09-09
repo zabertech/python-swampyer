@@ -5,10 +5,12 @@ import io
 import json
 import time
 import ctypes
+import platform
 import threading
 import traceback
 import six
 from six.moves import queue
+from importlib.metadata import version
 
 import socket
 
@@ -138,7 +140,7 @@ class WAMPClient(threading.Thread):
                 self,
                 url='ws://localhost:8080',
                 realm='realm1',
-                agent='python-swampyer-1.0',
+                agent=None,
                 uri_base='',
                 authmethods=None,
                 authid=None,
@@ -159,6 +161,14 @@ class WAMPClient(threading.Thread):
                 ):
 
         self._state = STATE_DISCONNECTED
+
+        # Set up the agent string used in the WAMP hellos
+        if agent is None:
+            agent = "python-swampyer-{swampyer_version}-{platform}"
+        agent = agent.format(
+                   platform = platform.platform(),
+                   swampyer_version = version('swampyer'),
+                )
 
         super(WAMPClient,self).__init__()
         self.daemon = True
@@ -203,6 +213,7 @@ class WAMPClient(threading.Thread):
         options.setdefault('sslopt',self.sslopt)
         options.setdefault('loop_timeout',self.loop_timeout)
         options.setdefault('serializers',self.serializers)
+        options.setdefault('agent', self.agent)
 
         # Attempt connection once unless it's autoreconnect in which
         # case we try and try again...
@@ -500,7 +511,7 @@ class WAMPClient(threading.Thread):
             details = {}
         if self.authid:
             details.setdefault('authid', self.authid)
-        details.setdefault('agent', 'swampyer-1.0')
+        details.setdefault('agent', self.agent)
         details.setdefault('authmethods', self.authmethods or ['anonymous'])
         details.setdefault('roles', {
                                         'subscriber': {},
