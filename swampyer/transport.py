@@ -9,6 +9,8 @@ import struct
 import socket
 import websocket
 import traceback
+import platform
+from importlib.metadata import version
 
 from .common import *
 from .messages import *
@@ -106,8 +108,14 @@ class WebsocketTransport(Transport):
         self.skip_utf8_validation = options.get('skip_utf8_validation',False)
 
         self.agent = options.get('agent')
-        self.user_agent = options.get('user_agent')
+        user_agent = options.get('user_agent')
+        if user_agent is None:
+            user_agent = "Python Swampyer v{swampyer_version} / {platform}"
 
+        self.user_agent = user_agent.format(
+                             platform = platform.platform(),
+                             swampyer_version = version('swampyer'),
+                        )
 
     def connect(self, **options):
         # Handle the weird issue in websocket that the origin
@@ -119,8 +127,7 @@ class WebsocketTransport(Transport):
         options.setdefault('sslopt',self.sslopt)
         options.setdefault('subprotocols',self.subprotocols)
 
-        # Include some information on where we're coming from such as OS
-        # and library type if we have access to it
+        # Allows us to set the user agent if avaialble
         header = options.setdefault('header', {})
         if self.user_agent and isinstance(header, dict):
             header.setdefault('user-agent', self.user_agent)
