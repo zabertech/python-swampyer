@@ -143,3 +143,8 @@
 3.0.20220626 - Sun Jun 26 11:57:38 PDT 2022
 * Fix RawSocket connections when recv returns fewer bytes than wanted
 * Add SSL RawSocket support
+
+3.0.20220909 - Fri Sep  9 12:04:34 PDT 2022
+* Ensure agent string doesn't get forced to `swampyer-1.0`
+* Now can supply an `agent` argument to `WAMPClient` that can be a simple string but also:
+    agent="myapp-1.2-{platform}" (which will send the platform info)

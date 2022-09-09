@@ -76,6 +76,7 @@ class WebsocketTransport(Transport):
     subprotocols = None
     fire_cont_frame = False
     skip_utf8_validation = False
+    user_agent = None
 
     def init(self, **options):
 
@@ -104,6 +105,10 @@ class WebsocketTransport(Transport):
         self.fire_cont_frame = options.get('fire_cont_frame',False)
         self.skip_utf8_validation = options.get('skip_utf8_validation',False)
 
+        self.agent = options.get('agent')
+        self.user_agent = options.get('user_agent')
+
+
     def connect(self, **options):
         # Handle the weird issue in websocket that the origin
         # port will be always http://host:port even though connection is
@@ -113,6 +118,12 @@ class WebsocketTransport(Transport):
 
         options.setdefault('sslopt',self.sslopt)
         options.setdefault('subprotocols',self.subprotocols)
+
+        # Include some information on where we're coming from such as OS
+        # and library type if we have access to it
+        header = options.setdefault('header', {})
+        if self.user_agent and isinstance(header, dict):
+            header.setdefault('user-agent', self.user_agent)
 
         self.socket = websocket.WebSocket(
                             fire_cont_frame=options.pop(
