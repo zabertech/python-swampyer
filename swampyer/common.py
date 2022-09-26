@@ -34,3 +34,14 @@ RAWSOCKET_MESSAGE_TYPE_PONG = 2
 EV_INIT = 1
 EV_EXIT = 2
 EV_MAX_UPDATED = 3
+
+
+try:
+    from importlib.metadata import version
+
+# This is to support python <=3.8 since they don't have importlib.metadata
+except ModuleNotFoundError:
+    import pkg_resources
+    def version(name):
+        return pkg_resources.get_distribution(name).version
+

@@ -48,7 +48,7 @@ RUN groupadd -g ${GID} zaber \
     && python3.8 /tmp/get-pip.py -q \
     && python3.9 /tmp/get-pip.py -q \
     && python3.10 /tmp/get-pip.py -q \
-    && pip3 install crossbar \
+    && pip3 install crossbar==21.1.1 autobahn==21.1.1 cfxdb==21.2.1 twisted[tls,conch,http2]==20.3.0 \
     && ls -l /tmp/ \
     ;
 
@@ -57,7 +57,7 @@ USER zaber
 COPY --chown=zaber:zaber . /app
 WORKDIR /app
 
-RUN    curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python3 - \
+RUN    curl -sSL https://install.python-poetry.org | python3 - \
     && /app/docker/build-envs.sh \
     ;
 

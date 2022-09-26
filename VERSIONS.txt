@@ -148,3 +148,8 @@
 * Ensure agent string doesn't get forced to `swampyer-1.0`
 * Now can supply an `agent` argument to `WAMPClient` that can be a simple string but also:
     agent="myapp-1.2-{platform}" (which will send the platform info)
+
+3.0.20220926 - Mon Sep 26 16:26:42 PDT 2022
+* Support for python <3.8 so that it doesn't break when using `importlib.metadata`
+
+

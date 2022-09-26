@@ -10,8 +10,6 @@ import threading
 import traceback
 import six
 from six.moves import queue
-from importlib.metadata import version
-
 import socket
 
 from .common import *

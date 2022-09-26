@@ -1,6 +1,6 @@
 #!/bin/bash
 
-. /home/zaber/.poetry/env
+export PATH="/home/zaber/.local/bin:$PATH"
 
 /bin/bash
 

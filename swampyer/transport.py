@@ -10,7 +10,6 @@ import socket
 import websocket
 import traceback
 import platform
-from importlib.metadata import version
 
 from .common import *
 from .messages import *
