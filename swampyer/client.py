@@ -162,9 +162,11 @@ class WAMPClient(threading.Thread):
 
         # Set up the agent string used in the WAMP hellos
         if agent is None:
-            agent = "python-swampyer-{swampyer_version}-{platform}"
+            agent = "python-swampyer-{swampyer_version}-{platform}-{python_implementation}{python_version}"
         agent = agent.format(
                    platform = platform.platform(),
+                   python_version = platform.python_version(),
+                   python_implementation = platform.python_implementation(),
                    swampyer_version = version('swampyer'),
                 )
 

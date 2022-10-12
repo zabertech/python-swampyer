@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "swampyer"
 description = "Simple WAMP library with minimal external dependencies"
-version = '3.0.20220926'
+version = '3.0.20221012'
 authors = ["Aki Mimoto <aki@zaber.com>"]
 
 [build-system]
