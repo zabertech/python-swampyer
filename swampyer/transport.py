@@ -109,10 +109,12 @@ class WebsocketTransport(Transport):
         self.agent = options.get('agent')
         user_agent = options.get('user_agent')
         if user_agent is None:
-            user_agent = "Python Swampyer v{swampyer_version} / {platform}"
+            user_agent = "Python Swampyer v{swampyer_version} / {platform} / {python_implementation}{python_version}"
 
         self.user_agent = user_agent.format(
                              platform = platform.platform(),
+                             python_version = platform.python_version(),
+                             python_implementation = platform.python_implementation(),
                              swampyer_version = version('swampyer'),
                         )
 

@@ -162,9 +162,11 @@ class WAMPClient(threading.Thread):
 
         # Set up the agent string used in the WAMP hellos
         if agent is None:
-            agent = "python-swampyer-{swampyer_version}-{platform}"
+            agent = "python-swampyer-{swampyer_version}-{platform}-{python_implementation}{python_version}"
         agent = agent.format(
                    platform = platform.platform(),
+                   python_version = platform.python_version(),
+                   python_implementation = platform.python_implementation(),
                    swampyer_version = version('swampyer'),
                 )
 
@@ -484,14 +486,30 @@ class WAMPClient(threading.Thread):
         if details.details['authmethod'] != 'anonymous':
             self.heartbeat()
         to_register = self._registered_calls
-        self._registered_calls = {}
-        for uri, callback, queue_name in to_register.values():
-            self.register(uri, callback, queue_name)
+        try:
+            self._registered_calls = {}
+            for uri, callback, queue_name in to_register.values():
+                self.register(uri, callback, queue_name)
+
+        # If there are any errors, we're just going to restore the cache
+        # of previously added registrations so that the next time around
+        # we can try again to get the full list registered
+        except Exception as ex:
+            self._registered_calls = to_register
+            raise
 
         to_subscribe = self._subscriptions
-        self._subscriptions = {}
-        for uri, callback, queue_name in to_subscribe.values():
-            self.subscribe(uri, callback, queue_name)
+        try:
+            self._subscriptions = {}
+            for uri, callback, queue_name in to_subscribe.values():
+                self.subscribe(uri, callback, queue_name)
+
+        # If there are any errors, we're just going to restore the cache
+        # of previously added subscriptions so that the next time around
+        # we can try again to get the full list subscribed
+        except Exception as ex:
+            self._subscriptions = to_subscribe
+            raise ex
 
     def handle_leave(self):
         pass
@@ -788,7 +806,6 @@ class WAMPClient(threading.Thread):
             till we reconnect
         """
         logger.debug("Disconnecting")
-        print("DISCONNECTING")
 
         # Close off the transport 
         if self.transport:

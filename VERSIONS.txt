@@ -152,4 +152,11 @@
 3.0.20220926 - Mon Sep 26 16:26:42 PDT 2022
 * Support for python <3.8 so that it doesn't break when using `importlib.metadata`
 
+3.0.20221012 - Wed Oct 12 10:44:20 PDT 2022
+* Add `python_version` and `python_implementation` as possible tags in agent string
 
+3.0.20221122 - Tue Nov 22 12:08:18 PST 2022
+* With repeated disconnects in a row, clients were losing their registration and subscription cache
+    This fix ensures that even if the reconnection process fails, the code doesn't wipe the
+    registration/subscription cache for the next reconnection attempt
+* Remove accidental `print("DISCONNECT")` debug
