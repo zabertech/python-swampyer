@@ -51,7 +51,25 @@ class JSONSerializer(Serializer):
                 elif isinstance(obj, memoryview):
                     return self.default(bytes(obj))
                 elif isinstance(obj, bytes):
-                    return obj.decode()
+                    try:
+                        return obj.decode()
+                    except UnicodeDecodeError as ex:
+                        # Only show the entire data if we're below 200bytes
+                        # FIXME: we'll probably want to allow for
+                        # configuration or even interception later
+
+                        start_byte = max(ex.start - 100, 0)
+                        end_byte = min(ex.start + 100, len(obj))
+                        data = obj[start_byte:ex.start] \
+                                    + b" ->>" \
+                                    + obj[ex.start:ex.start+1] \
+                                    + b"<<- " \
+                                    + obj[ex.start+1:end_byte]
+                        ex.reason += f" in byte array {repr(data)}"
+
+                        raise ex
+                    except Exception as ex:
+                        raise ex
 
                 return json_module.JSONEncoder.default(self, obj)
         self.json_encoder = WampJSONEncoder

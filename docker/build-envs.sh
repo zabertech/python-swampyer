@@ -9,8 +9,9 @@ create_work_env() {
   poetry install -E all
 }
 
-create_work_env "2.7"
 create_work_env "3.6"
 create_work_env "3.7"
 create_work_env "3.8"
+create_work_env "3.10"
+create_work_env "3.11"
 create_work_env "3.9"
