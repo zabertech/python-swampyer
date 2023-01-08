@@ -603,7 +603,7 @@ class WAMPClient(threading.Thread):
             raise ExWAMPConnectionError("WAMP is currently disconnected!")
         if not self.transport:
             raise ExWAMPConnectionError("WAMP is currently disconnected!")
-        logger.debug("SND>: {}".format(message))
+        logger.debug("SND>: {}".format(message.dump()))
         self.transport.send_message(message)
 
     def send_and_await_response(self,request):

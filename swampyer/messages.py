@@ -3,6 +3,7 @@ import sys
 import six
 import decimal
 import traceback
+import pprint
 
 from .fields import *
 from .serializers import *
@@ -110,8 +111,8 @@ class WampMessage(object):
         return record
 
     def dump(self):
-        serialized = self.serializer.dumps(self.package(debug=True))
-        s = u"JSON({})={}".format(self.code_name,serialized)
+        serialized = pprint.pformat(self.package(debug=True))
+        s = u"({})={}".format(self.code_name,serialized)
         s += u"\n--[{}]----------------------------\n".format(self.code_name)
         for field in self._fields:
             if field.hide_from_debug:

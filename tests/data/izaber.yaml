@@ -1,0 +1,154 @@
+default:
+  email:
+      from: test@zaber.com
+      host: localhost
+  nexus: 
+    db:
+      path: 'db'
+    ldap:
+      server:
+        host: file://ldap-mock-data.yaml
+  crossbar:
+    version: 2
+    workers:
+    - transports:
+    #################################################################
+    # PATHS
+    #################################################################
+    #=====================================
+    # PLAINTEXT WEBSOCKET CONNECTION
+    #=====================================
+      - type: web
+        paths:
+          /:
+            type: static
+            resource: static
+            package: nexus.web
+          ws:
+            debug: false
+            type: websocket
+            cookie:
+              max_age: 2
+              store:
+                type: memory
+            auth:
+              ticket:
+                authenticator: com.izaber.wamp.auth.authenticator
+                type: dynamic
+              cookie: {}
+              anonymous:
+                type: static
+                role: public
+        endpoint:
+          type: tcp
+          port: 8282
+
+    #=====================================
+    # PLAINTEXT RAWSOCKET CONNECTION
+    #=====================================
+      - type: rawsocket
+        endpoint:
+          type: tcp
+          interface: "127.0.0.1"
+          port: 18081
+          backlog: 1024
+        options:
+          max_message_size: 1048576
+        serializers:
+        - cbor
+        - msgpack
+        - json
+        auth:
+          ticket:
+            authenticator: com.izaber.wamp.auth.authenticator
+            type: dynamic    
+
+    #=====================================
+    # PLAINTEXT UNIX SOCKET CONNECTION
+    #=====================================
+      - type: rawsocket
+        endpoint:
+          type: unix
+          path: "/tmp/test-nexus.socket"
+        options:
+          max_message_size: 1048576
+        serializers:
+        - cbor
+        - msgpack
+        - json
+        auth:
+          ticket:
+            authenticator: com.izaber.wamp.auth.authenticator
+            type: dynamic
+
+    #=====================================
+    # SSL CONNECTION
+    #=====================================
+    #  - paths:
+    #      /:
+    #        directory: ../web
+    #        type: static
+    #      ws:
+    #        type: websocket
+    #        debug: true
+    #        cookie:
+    #          store:
+    #            type: file
+    #            filename: cookies.dat
+    #        auth:
+    #          ticket:
+    #            authenticator: com.izaber.wamp.auth.authenticator
+    #            type: dynamic
+    #          cookie: {}
+    #          anonymous:
+    #            type: static
+    #            role: public
+    #    endpoint:
+    #      tls:
+    #        certificate: nginx-ssl-izaber-bundle.crt
+    #        key: nginx-ssl-izaber.key
+    #      type: tcp
+    #      port: 8181
+    #    type: web
+
+    #################################################################
+      type: router
+      options:
+        pythonpath:
+          - ../../lib
+    #################################################################
+    # REALMS
+    #################################################################
+      realms:
+    #=====================================
+    # IZABER REALM
+    #=====================================
+      - name: izaber
+        roles:
+        - name: frontend
+          authorizer: com.izaber.wamp.auth.authorizer
+        - name: backend
+          authorizer: com.izaber.wamp.auth.authorizer
+        - name: public
+          authorizer: com.izaber.wamp.auth.authorizer
+        - name: trust
+          permissions:
+          - allow:
+              subscribe: true
+              register: true
+              call: true
+              publish: true
+            uri: ''
+            match: prefix
+            disclose:
+              caller: true
+              publisher: true
+    #################################################################
+    # COMPONENTS
+    #################################################################
+      components:
+      - classname: nexus.component.domain.DomainComponent
+        realm: izaber
+        role: trusted
+        type: class
+

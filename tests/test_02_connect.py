@@ -1,12 +1,8 @@
 #!/usr/bin/python
 
-from common import *
-import logging
-import sys
-import time
+from lib import *
 
 import swampyer
-
 
 logging.basicConfig(stream=sys.stdout, level=30)
 # We want to see the protocol information

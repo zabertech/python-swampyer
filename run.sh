@@ -54,7 +54,7 @@ upsert_docker_image () {
 }
 
 default_invoke_command () {
-  INVOKE_COMMAND="/app/docker/tox.sh"
+  INVOKE_COMMAND="nox"
 }
 
 launch_container () {
@@ -63,7 +63,7 @@ launch_container () {
 
   docker run --name $CONTAINER_NAME \
       -ti \
-      -v `pwd`:/app \
+      -v `pwd`:/src \
       -p $PORT_PLAINTEXT:8282 \
       -p $PORT_SSL:8181 \
       --rm \
@@ -74,10 +74,10 @@ launch_container () {
 login() {
   if [[ "$(docker inspect ${CONTAINER_NAME} 2> /dev/null)" == "[]" ]]; then
     upsert_docker_image
-    INVOKE_COMMAND="/app/docker/shell.sh"
+    INVOKE_COMMAND="/src/docker/shell.sh"
     launch_container
   else
-    docker exec -ti $CONTAINER_NAME "/app/docker/shell.sh"
+    docker exec -ti $CONTAINER_NAME "/src/docker/shell.sh"
   fi
 }
 
@@ -102,7 +102,7 @@ else
         ;;
 
     here) default_invoke_command
-          cd /app/nexus/data
+          cd /src/nexus/data
           $INVOKE_COMMAND
         ;;
 

@@ -31,8 +31,8 @@ Setting up the environment can by:
 
 ```bash
 git clone https://github.com/zabertech/python-swampyer.git
-pipenv shell
-pipenv install --dev
+poetry shell
+poetry install
 ```
 
 ### Testing
@@ -40,12 +40,13 @@ pipenv install --dev
 Execute by running
 
 ```bash
-tox
+nox
 ```
 
 ### Packaging
 
 ```
-python setup.py sdist && twine upload dist/*
+poetry build
+poetry publish
 ```
 

@@ -1,10 +1,6 @@
 #!/usr/bin/python
 
-from common import *
-import logging
-import sys
-import time
-
+from lib import *
 import swampyer
 
 
@@ -49,7 +45,7 @@ def hello(event,data):
     return data
 
 def test_exception():
-    client = connect_service(url='myws://localhost:18080/ws')
+    client = connect_service(url='myws://localhost:8282/ws')
 
     # Check if we can register
     reg_result = client.register('com.izaber.wamp.hello', hello, details={"force_reregister": True})

@@ -1,9 +1,7 @@
 #!/usr/bin/python
 
-import re
-from common import *
+from lib import *
 
-import logging
 import swampyer
 from swampyer.messages import *
 

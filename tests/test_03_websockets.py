@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 
-from common import *
-import logging
-import sys
-import time
+from lib import *
 
 import swampyer
 
