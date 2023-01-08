@@ -1,8 +1,6 @@
 #!/usr/bin/python
 
-from common import *
-import logging
-import sys
+from lib import *
 
 import swampyer
 

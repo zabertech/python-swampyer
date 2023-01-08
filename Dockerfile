@@ -1,71 +1,64 @@
-FROM ubuntu:20.04
+FROM zaberit/nexus:3.0.20230103
 
-ARG UID=1000
-ARG GID=1000
+# Copy over the data files
+COPY . /src
 
-ENV DEBIAN_FRONTEND noninteractive
-ENV PIP_ROOT_USER_ACTION=ignore
+# Let's sit in the src directory by default
+WORKDIR /src
+
+ENV PATH /root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 USER root
 
-RUN groupadd -g ${GID} zaber \
-    && useradd -m -u ${UID} -d /home/zaber -g zaber zaber \
-    && apt update \
-    && apt install -y software-properties-common \
-    && add-apt-repository ppa:deadsnakes/ppa \
-    && DEBIAN_FRONTEND=noninteractive apt install -y \
-            vim-nox \
-            tmux \
-            python3.6 \
-            python3.7 \
-            python3.8 \
-            python3.9 \
-            python3.11 \
-            python3.10 \
-            libsnappy-dev \
+RUN apt update ; apt install -y software-properties-common ; add-apt-repository ppa:deadsnakes/ppa \
+    && apt install -y \
+            build-essential \
+            curl \
+            git \
+            libssl-dev \
             libxml2-dev \
             libxslt1-dev \
-            build-essential \
             pypy3-dev \
+            python3-distutils \
+            python3.6 \
             python3.6-dev \
-            python3.7-dev \
-            python3.8-dev \
-            python3.9-dev \
-            python3.11-dev \
-            python3.10-dev \
-            libssl-dev \
-            curl \
-            python3-distutils \
-    && curl https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py \
-    && curl https://bootstrap.pypa.io/pip/3.6/get-pip.py -o /tmp/get-pip-3.6.py \
-    && DEBIAN_FRONTEND=noninteractive apt install -y \
-            python3-distutils \
-            python3-apt \
             python3.6-distutils \
+            python3.7 \
+            python3.7-dev \
             python3.7-distutils \
-            python3.8-distutils \
-            python3.9-distutils \
-            python3.11-distutils \
+            python3.8 \
+            python3.8-dev \
+            python3.8-venv \
+            python3.9 \
+            python3.9-dev \
+            python3.10 \
+            python3.10-dev \
             python3.10-distutils \
-    && python3.6 /tmp/get-pip-3.6.py -q \
-    && python3.7 /tmp/get-pip.py -q \
-    && python3.8 /tmp/get-pip.py -q \
-    && python3.9 /tmp/get-pip.py -q \
-    && python3.10 /tmp/get-pip.py -q \
-    && pip3 install crossbar==21.1.1 autobahn==21.1.1 cfxdb==21.2.1 twisted[tls,conch,http2]==20.3.0 \
-    && python3.11 /tmp/get-pip.py -q \
-    && ls -l /tmp/ \
-    ;
+            python3.11 \
+            python3.11-dev \
+            python3.11-distutils \
+            telnet \
+            vim-nox \
+    # Pip is handy to have around
+    && curl https://bootstrap.pypa.io/get-pip.py -o /root/get-pip.py \
+    && python3 /root/get-pip.py \
+    # We also use Nox
+    && python3 -m pip install nox \
+    # Cleanup caches to reduce image size
+    && python3 -m pip cache purge \
+    && apt clean \
+    && rm -rf ~/.cache \
+    && rm -rf /var/lib/apt/lists/*
 
 USER zaber
 
-COPY --chown=zaber:zaber . /app
-WORKDIR /app
-
-RUN    curl -sSL https://install.python-poetry.org | python3 - \
-    && /app/docker/build-envs.sh \
+RUN echo "Installing Poetry" \
+    # Poetry is used managing deps and such
+    && curl -sSL https://install.python-poetry.org -o /tmp/install-poetry.py \
+    && python3 /tmp/install-poetry.py \
+    # SETUP Environment
+    && /src/docker/setup-env.sh \
     ;
 
-# Then this will execute the test command
-CMD /bin/bash
+CMD /src/docker/run-test.sh
 

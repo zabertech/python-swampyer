@@ -166,3 +166,10 @@
 * Modify deserialize in JSON to show what byte broke utf8 conversion
 * Modify debug dump to use pprint rather than json.dumps (binary fields that could not
    be converted to utf8 would break even if the message was being sent cbor or msgpack)
+
+3.0.20230108 - Sun Jan  8 21:06:52 UTC 2023
+* Merged @Hawk777's removal of unused `simplyjson`
+* Merged @dependabot's update of certifi
+* Updated tests to use noxfile and iZaber Nexus
+
+

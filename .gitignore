@@ -250,3 +250,9 @@ key.pub
 
 experiments
 
+*.bak
+
+tests/data/key.*
+tests/data/db
+tests/data/snapshot.json
+

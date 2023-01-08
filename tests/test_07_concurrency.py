@@ -1,9 +1,6 @@
 #!/usr/bin/python
 
-from common import *
-import logging
-import sys
-import time
+from lib import *
 import threading
 
 import swampyer
