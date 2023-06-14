@@ -1,4 +1,5 @@
 #!/usr/bin/python
+from datetime import datetime
 
 from lib import *
 
@@ -31,6 +32,21 @@ def test_connection():
     except UnicodeDecodeError as ex:
         print(f"JSON does not like non-utf8 strings {ex}")
         pass
+    except Exception as ex:
+        raise
+
+    # Send a datetime object, ensure it falls back to
+    # isoformat().
+    obj = datetime.now()
+    try:
+        client_json.publish(
+            'com.izaber.wamp.pub.hello',
+            options={
+            'acknowledge': True,
+            'exclude_me': False,
+            },
+        args=[obj]
+        )
     except Exception as ex:
         raise
 

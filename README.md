@@ -40,7 +40,21 @@ poetry install
 Execute by running
 
 ```bash
+./run.sh login
+poetry shell
 nox
+```
+
+Execute a specific nox environment:
+
+```bash
+nox -e <env_name>
+```
+
+Note: a list of available environments can be found with:
+
+```bash
+nox --list-sessions
 ```
 
 ### Packaging
