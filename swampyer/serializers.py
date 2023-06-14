@@ -10,6 +10,8 @@ import socket
 import websocket
 import traceback
 
+from datetime import date, datetime
+
 from .common import *
 from .utils import logger
 from .exceptions import *
@@ -50,6 +52,8 @@ class JSONSerializer(Serializer):
                     return float(obj)
                 elif isinstance(obj, memoryview):
                     return self.default(bytes(obj))
+                elif isinstance(obj, (datetime, date)):
+                    return obj.isoformat()
                 elif isinstance(obj, bytes):
                     try:
                         return obj.decode()
