@@ -1,14 +1,14 @@
 [tool.poetry]
 name = "swampyer"
 description = "Simple WAMP library with minimal external dependencies"
-version = '3.0.20230108'
+version = '3.0.20230614'
 authors = ["Aki Mimoto <aki@zaber.com>"]
 packages = [
   { include = "swampyer" }
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.6.0,<4.0"
+python = ">=3.7.0,<4.0"
 websocket-client = ">=0.59.0"
 certifi = ">=2020.12.5"
 six = "^1.16.0"

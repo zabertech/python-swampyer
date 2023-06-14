@@ -172,4 +172,5 @@
 * Merged @dependabot's update of certifi
 * Updated tests to use noxfile and iZaber Nexus
 
-
+3.0.20230614 - Wed Jun 14 11:00:28 PDT 2023
+* Merged @zaberblake's change to allow `datetime` and `date` to be natively handled
