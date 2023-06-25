@@ -174,3 +174,6 @@
 
 3.0.20230614 - Wed Jun 14 11:00:28 PDT 2023
 * Merged @zaberblake's change to allow `datetime` and `date` to be natively handled
+
+3.0.20230623 - Sun Jun 25 16:16:10 PDT 2023
+* Added support for `websockets` library as an alternate to `websocket-client`

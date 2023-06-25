@@ -10,13 +10,12 @@ import socket
 import websocket
 
 HAS_ALT_WEBSOCKETS_LIBRARY = False
-try:
-    import websockets.sync.client as wsc
-    HAS_ALT_WEBSOCKETS_LIBRARY = True
-
-
-except:
-    pass
+if not os.getenv('SWAMPYER_DISABLE_ALT_WEBSOCKETS_LIBRARY'):
+    try:
+        import websockets.sync.client as wsc
+        HAS_ALT_WEBSOCKETS_LIBRARY = True
+    except:
+        pass
 
 import traceback
 import threading
