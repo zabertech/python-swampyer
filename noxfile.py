@@ -6,6 +6,7 @@ from lib import *
 
 import os
 import nox
+import time
 import shutil
 import pathlib
 import subprocess
@@ -49,7 +50,7 @@ def build(session):
     PACKAGE_BUILT = True
     session.run("poetry", "build", )
 
-@nox.session(python=['pypy3', '3.6', '3.7', '3.8', '3.9', '3.10', '3.11' ])
+@nox.session(python=['pypy3', '3.7', '3.8', '3.9', '3.10', '3.11' ])
 def tests(session):
     global PACKAGE_BUILT
 
@@ -78,9 +79,9 @@ def tests(session):
 
     # Finally, run the tests
     try:
-        session.run("pytest")
+        session.run("pytest", "--log-cli-level=WARN", "-s")
 
     finally:
         # And tear nexus down now that'we re done
-        p.terminate()
+        p.kill()
         p.wait()

@@ -12,7 +12,7 @@ logging.basicConfig(stream=sys.stdout, level=30)
 def test_connection():
     cli = connect_service()
     time.sleep(1)
-    return cli
+    cli.shutdown()
 
 if __name__ == '__main__':
-    print(test_connection())
+    test_connection()
