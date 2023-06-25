@@ -67,7 +67,6 @@ def test_exception():
     assert RECV_DATA_ITERATIONS == 1
 
     # Then shutdown
-    print("SHUTTING DOWN!1")
     client.shutdown()
 
     

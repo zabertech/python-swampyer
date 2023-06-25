@@ -65,9 +65,7 @@ def test_connection():
 
 
     # Then shutdown
-    print("SHUTTING DOWN!1")
     client.shutdown()
-    print("SHUTTING DOWN!2")
     client2.shutdown()
 
 
