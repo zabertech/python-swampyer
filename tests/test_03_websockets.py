@@ -32,6 +32,12 @@ def test_connection():
     assert call_result
     assert call_result.encode('utf8') == binary_data
 
+    # Let's send a huge amount of data
+    binary_data = b'\xEF\xBB\xBF\x00'*1000000
+    call_result = client2.call('com.izaber.wamp.hello',binary_data)
+    assert call_result
+    assert call_result.encode('utf8') == binary_data
+
     # Let's unregister then
     unreg_result = client.unregister(reg_result.registration_id)
     assert unreg_result == swampyer.WAMP_UNREGISTERED
@@ -62,7 +68,6 @@ def test_connection():
     # Unsubscribe
     unsub_result = client.unsubscribe(sub_result.subscription_id)
     assert unsub_result == swampyer.WAMP_UNSUBSCRIBED
-
 
     # Then shutdown
     client.shutdown()

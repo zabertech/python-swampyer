@@ -200,6 +200,7 @@ if HAS_ALT_WEBSOCKETS_LIBRARY:
                                   subprotocols = subprotocols,
                                   additional_headers = header,
                                   create_connection = MyConnection,
+                                  max_size = 2**32
                               )
                 self.socket.daemon = True
             except Exception as ex:
