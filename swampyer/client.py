@@ -3,6 +3,7 @@ from __future__ import unicode_literals
 import re
 import io
 import json
+import math
 import time
 import ctypes
 import platform
@@ -953,7 +954,16 @@ class WAMPClient(threading.Thread):
         """
         data = None
 
+        consecutive_error_count = 0
         while not self._request_shutdown:
+
+            # Let's delay a bit if there's consective errors We will scale with a nice logistic
+            # curve that initially allows for fast retries but as the number of errors increase,
+            # increases the penalty for consective failures up to a maximum of 60 seconds
+            # between each attempt
+            if consecutive_error_count:
+                sleep_duration = 60 / (1 + math.exp(-(consecutive_error_count-80)/10))
+                time.sleep(sleep_duration)
 
             # Find out if we have any data pending from the
             # server
@@ -996,8 +1006,10 @@ class WAMPClient(threading.Thread):
                 self._state = STATE_DISCONNECTED
                 return
             except io.BlockingIOError:
+                consecutive_error_count += 1
                 continue
             except (ExWAMPConnectionError) as ex:
+                consecutive_error_count += 1
                 logger.debug("Transport Exception. Requesting disconnect:".format(ex))
                 self._state = STATE_DISCONNECTED
                 self.stop_heartbeat()
@@ -1018,6 +1030,7 @@ class WAMPClient(threading.Thread):
                     time.sleep(1)
                     if not data: continue
             except Exception as ex:
+                consecutive_error_count += 1
                 logger.error(
                     "ERROR in main loop: {ex}\n{traceback}".format(
                         ex=ex,
@@ -1036,9 +1049,16 @@ class WAMPClient(threading.Thread):
                     handler_name = "handle_"+code_name
                     handler_function = getattr(self,handler_name)
                     handler_function(message)
+
+                    # Reset the counter
+                    consecutive_error_count = 0
+
                 except AttributeError as ex:
+                    consecutive_error_count += 1
                     self.handle_unknown(message)
+
             except Exception as ex:
+                consecutive_error_count += 1
                 logger.error("ERROR in main loop when receiving: {ex}\n{traceback}".format(
                     ex=ex,
                     traceback=traceback.format_exc(),
