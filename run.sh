@@ -32,6 +32,9 @@ COMMANDS:
   login
         This runs docker exec -ti $CONTAINER_NAME bash to allow "logging in" to a container
       
+  shell
+        This runs docker exec -ti $CONTAINER_NAME bash to allow "logging in" to a container
+
   root
         This runs docker exec -ti -u root $CONTAINER_NAME bash to allow "logging in" to a
             container as root
@@ -71,7 +74,7 @@ launch_container () {
     echo "Started ${CONTAINER_NAME}."
 }
 
-login() {
+shell() {
   if [[ "$(docker inspect ${CONTAINER_NAME} 2> /dev/null)" == "[]" ]]; then
     upsert_docker_image
     INVOKE_COMMAND="/src/docker/shell.sh"
@@ -106,7 +109,10 @@ else
           $INVOKE_COMMAND
         ;;
 
-    login) login
+    login) shell
+        ;;
+
+    shell) shell
         ;;
 
     root) docker exec -ti -u root $CONTAINER_NAME /bin/bash
