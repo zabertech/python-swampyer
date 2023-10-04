@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "swampyer"
 description = "Simple WAMP library with minimal external dependencies"
-version = '3.0.20230623'
+version = '3.0.20231004'
 authors = ["Aki Mimoto <aki@zaber.com>"]
 packages = [
   { include = "swampyer" }

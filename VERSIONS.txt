@@ -177,3 +177,7 @@
 
 3.0.20230623 - Sun Jun 25 16:16:10 PDT 2023
 * Added support for `websockets` library as an alternate to `websocket-client`
+
+3.0.2023104 - Wed Oct  4 11:57:21 PDT 2023
+* Fix large packets throwing errors when using `websockets`
+* Add increasing delay as consecutive errors are encountered
