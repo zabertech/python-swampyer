@@ -1,4 +1,9 @@
-FROM zaberit/nexus:3.0.20230103
+FROM zaberit/nexus:3.0.20230620
+
+# Make the src directory
+USER root
+RUN mkdir /src && chown -R zaber: /src
+USER zaber
 
 # Copy over the data files
 COPY . /src
@@ -20,9 +25,6 @@ RUN apt update ; apt install -y software-properties-common ; add-apt-repository 
             libxslt1-dev \
             pypy3-dev \
             python3-distutils \
-            python3.6 \
-            python3.6-dev \
-            python3.6-distutils \
             python3.7 \
             python3.7-dev \
             python3.7-distutils \
