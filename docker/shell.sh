@@ -2,7 +2,7 @@
 
 export PATH="/home/zaber/.local/bin:$PATH"
 
-/bin/bash
+exec /bin/bash
 
 #poetry shell
 

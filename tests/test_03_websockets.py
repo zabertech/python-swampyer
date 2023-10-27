@@ -69,6 +69,23 @@ def test_connection():
     unsub_result = client.unsubscribe(sub_result.subscription_id)
     assert unsub_result == swampyer.WAMP_UNSUBSCRIBED
 
+    # We had an issue where multiple publishes in a row took
+    # longer and longer. In this case we'll run the query
+    # 100 times quickly than see how much time has passed
+    # This should take less than 1 second
+    start_time = time.time()
+    for _ in range(30):
+        pub_result = client2.publish(
+            'com.izaber.wamp.pub.hello',
+            options={
+                'acknowledge': True,
+            },
+            args=['Hej!']
+        )
+    end_time = time.time()
+    duration = end_time - start_time
+    assert duration < 1.0
+
     # Then shutdown
     client.shutdown()
     client2.shutdown()

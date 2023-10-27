@@ -181,3 +181,9 @@
 3.0.2023104 - Wed Oct  4 11:57:21 PDT 2023
 * Fix large packets throwing errors when using `websockets`
 * Add increasing delay as consecutive errors are encountered
+
+3.0.20231027 - Fri Oct 27 07:50:37 PDT 2023
+* Fix erroneous handling of non-error exception causing increasing delays for
+  publishing a message with `acknowledge` set to `True`
+* Add py 3.12 to tests
+* Improve run.sh's shell call so that it uses exec to shell

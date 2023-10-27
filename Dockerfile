@@ -39,6 +39,9 @@ RUN apt update ; apt install -y software-properties-common ; add-apt-repository 
             python3.11 \
             python3.11-dev \
             python3.11-distutils \
+            python3.12 \
+            python3.12-dev \
+            python3.12-distutils \
             telnet \
             vim-nox \
     # Pip is handy to have around

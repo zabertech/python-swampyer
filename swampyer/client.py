@@ -1053,8 +1053,12 @@ class WAMPClient(threading.Thread):
                     # Reset the counter
                     consecutive_error_count = 0
 
+                # Attribute error is not an error. In this case, we're probably calling
+                # something like handle_published() or any of the optional handle_XXX
+                # functionality. We can define as we go and if there is nothing defined
+                # it should go to handle_unknown which is perfectly normal behaviour
+                # So: this should not have a "consecutive_error_count += 1"
                 except AttributeError as ex:
-                    consecutive_error_count += 1
                     self.handle_unknown(message)
 
             except Exception as ex:

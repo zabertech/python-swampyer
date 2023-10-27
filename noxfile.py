@@ -50,7 +50,7 @@ def build(session):
     PACKAGE_BUILT = True
     session.run("poetry", "build", )
 
-@nox.session(python=['pypy3', '3.7', '3.8', '3.9', '3.10', '3.11' ])
+@nox.session(python=['pypy3', '3.7', '3.8', '3.9', '3.10', '3.11', '3.12' ])
 def tests(session):
     global PACKAGE_BUILT
 
