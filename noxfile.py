@@ -32,7 +32,7 @@ def create_db():
         shutil.rmtree(DB_PATH)
 
     # Now create the database
-    subprocess.run([
+    subprocess_command = [
             "nexus",
             "testdb",
             "create",
@@ -40,7 +40,9 @@ def create_db():
             "admin",
             "--cbdir",
             str(DATA_PATH.resolve()),
-        ])
+        ]
+    print("Running:", " ".join(subprocess_command))
+    subprocess.run(subprocess_command)
 
     DB_CREATED = True
 

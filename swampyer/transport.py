@@ -5,6 +5,8 @@ import ssl
 import stat
 import time
 import struct
+import pathlib
+import getpass
 
 import socket
 import websocket
@@ -182,6 +184,9 @@ if HAS_ALT_WEBSOCKETS_LIBRARY:
                                  python_version = platform.python_version(),
                                  python_implementation = platform.python_implementation(),
                                  swampyer_version = version('swampyer'),
+                                 local_user = getpass.getuser(),
+                                 local_host = socket.gethostname(),
+                                 local_path = pathlib.Path(sys.argv[0]).resolve(),
                             )
 
         def connect(self, **options):

@@ -1,17 +1,18 @@
 from __future__ import unicode_literals
 
-import re
 import io
 import json
 import math
 import time
 import ctypes
+import getpass
+import pathlib
 import platform
 import threading
 import traceback
-import six
-from six.moves import queue
 import socket
+
+from six.moves import queue
 
 from .common import *
 from .messages import *
@@ -163,12 +164,15 @@ class WAMPClient(threading.Thread):
 
         # Set up the agent string used in the WAMP hellos
         if agent is None:
-            agent = "python-swampyer-{swampyer_version}-{platform}-{python_implementation}{python_version}"
+            agent = "python-swampyer-{swampyer_version}-{platform}-{python_implementation}{python_version} {local_user}@{local_host}:{local_path}"
         agent = agent.format(
                    platform = platform.platform(),
                    python_version = platform.python_version(),
                    python_implementation = platform.python_implementation(),
                    swampyer_version = version('swampyer'),
+                   local_user = getpass.getuser(),
+                   local_host = socket.gethostname(),
+                   local_path = pathlib.Path(sys.argv[0]).resolve(),
                 )
 
         super(WAMPClient,self).__init__()

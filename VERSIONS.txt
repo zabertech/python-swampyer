@@ -187,3 +187,7 @@
   publishing a message with `acknowledge` set to `True`
 * Add py 3.12 to tests
 * Improve run.sh's shell call so that it uses exec to shell
+
+3.0.20231204 - Mon Dec  4 08:33:47 PST 2023
+* Increase client information (provide login user, host and script) for the purpose
+  of providing teams a way of tracking errors down to origination point
