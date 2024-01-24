@@ -191,3 +191,7 @@
 3.0.20231204 - Mon Dec  4 08:33:47 PST 2023
 * Increase client information (provide login user, host and script) for the purpose
   of providing teams a way of tracking errors down to origination point
+
+3.0.20240124 - Wed Jan 24 09:27:07 AM PST 2024
+* FIX: When using the `websockets` library, capture and handle the `ConnectionClosedError`
+    properly. Handle reconnect attempt properly and don't trigger a tight error loop

@@ -75,14 +75,16 @@ def connect_service(
           concurrency_max=None,
           concurrency_class=None,
           concurrency_configs=None,
-          timeout=None
+          timeout=None,
+          username=None
           ):
 
     snapshot_data = load_nexus_db()
     users = snapshot_data['users']
 
     # Try to login manually
-    username = 'backend-1'
+    if not username:
+        username = 'backend-1'
     password = users[username]['plaintext_password']
 
     serializers = None

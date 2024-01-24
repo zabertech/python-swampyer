@@ -15,6 +15,7 @@ HAS_ALT_WEBSOCKETS_LIBRARY = False
 if not os.getenv('SWAMPYER_DISABLE_ALT_WEBSOCKETS_LIBRARY'):
     try:
         import websockets.sync.client as wsc
+        import websockets.exceptions as wse
         HAS_ALT_WEBSOCKETS_LIBRARY = True
     except:
         pass
@@ -222,10 +223,20 @@ if HAS_ALT_WEBSOCKETS_LIBRARY:
             return self.socket.close()
 
         def send(self, payload):
-            self.socket.send(payload)
+            try:
+                self.socket.send(payload)
+            except wse.ConnectionClosedError:
+                raise ExWAMPConnectionError()
+            except Exception as ex:
+                raise ex
 
         def recv_data(self, *a, **kw):
-            return self.socket.recv()
+            try:
+                return self.socket.recv()
+            except wse.ConnectionClosedError:
+                raise ExWAMPConnectionError()
+            except Exception as ex:
+                raise ex
 
         def next(self):
             try:
