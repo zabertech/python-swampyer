@@ -2,12 +2,42 @@ default:
   email:
       from: test@zaber.com
       host: localhost
-  nexus: 
+  nexus:
     db:
       path: 'db'
     ldap:
       server:
         host: file://ldap-mock-data.yaml
+    apikey:
+      permissions:
+      - perms: ''
+        uri: com.izaber.wamp.my.apikeys.*
+      - perms: ''
+        uri: com.izaber.wamp.my.otps.*
+      - perms: ''
+        uri: my.otps.*
+      - perms: ''
+        uri: my.apikey.*
+      - perms: ''
+        uri: system.db.*
+      - perms: ''
+        uri: com.izaber.wamp.system.db.*
+    otp:
+      permissions:
+      - perms: ''
+        uri: com.izaber.wamp.my.apikeys.*
+      - perms: ''
+        uri: com.izaber.wamp.my.otps.*
+      - perms: ''
+        uri: my.otps.*
+      - perms: ''
+        uri: my.apikey.*
+      - perms: ''
+        uri: system.db.*
+      - perms: ''
+        uri: com.izaber.wamp.system.db.*
+
+
   crossbar:
     version: 2
     workers:
@@ -24,11 +54,18 @@ default:
             type: static
             resource: static
             package: nexus.web
+          api:
+            debug: true
+            type: restapi
+            realm: izaber
+            role: trust
+            options:
+              debug: true
           ws:
             debug: false
             type: websocket
             cookie:
-              max_age: 2
+              max_age: 20
               store:
                 type: memory
             auth:
@@ -61,7 +98,7 @@ default:
         auth:
           ticket:
             authenticator: com.izaber.wamp.auth.authenticator
-            type: dynamic    
+            type: dynamic
 
     #=====================================
     # PLAINTEXT UNIX SOCKET CONNECTION
@@ -132,17 +169,7 @@ default:
         - name: public
           authorizer: com.izaber.wamp.auth.authorizer
         - name: trust
-          permissions:
-          - allow:
-              subscribe: true
-              register: true
-              call: true
-              publish: true
-            uri: ''
-            match: prefix
-            disclose:
-              caller: true
-              publisher: true
+          authorizer: com.izaber.wamp.auth.authorizer
     #################################################################
     # COMPONENTS
     #################################################################

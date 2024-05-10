@@ -78,7 +78,7 @@ def simple_call(client, method, bypass):
             CALL_ERRORS[method] += 1
 
     return make_call
- 
+
 def invoke_a_bunch(methods, iterations):
     """ This will invoke each of the methods `iterations` times 
         in quick succession. Then waits for the threads to complete
@@ -224,6 +224,8 @@ def test_connection():
     assert swampyer.WAMP_REGISTERED == reg_result
     assert reg_result == swampyer.WAMP_REGISTERED
 
+    # Validate that we're empty of errors
+    assert len(CALL_ERRORS) == 0
 
     # Let's create a burst of data and we're going to bypass some
     # gates due to the custom queue
@@ -302,8 +304,6 @@ def test_connection():
     client.shutdown()
     client2.shutdown()
 
-
-    
 if __name__ == '__main__':
     test_connection()
 

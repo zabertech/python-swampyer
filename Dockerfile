@@ -1,4 +1,4 @@
-FROM zaberit/nexus:3.0.20230620
+FROM zaberit/nexus:3.0.20240503
 
 # Make the src directory
 USER root
@@ -68,5 +68,6 @@ RUN echo "Installing Poetry" \
     && /src/docker/setup-env.sh \
     ;
 
+ENV PATH /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 CMD /src/docker/run-test.sh
 

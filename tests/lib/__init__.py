@@ -27,12 +27,14 @@ def launch_nexus():
     cx_env['PYTHONPATH'] = str(SRC_PATH/"lib")
     log_level = cx_env.get('LOG_LEVEL', 'warn')
     config_fpath = str(DATA_PATH/'izaber.yaml')
-    cx_process =  subprocess.Popen([
+    args = [
                                 "crossbar",
                                 "start",
                                 "--loglevel", log_level,
                                 "--config", config_fpath
-                            ], env=cx_env)
+                            ]
+    print("Launching: ", " ".join(args))
+    cx_process =  subprocess.Popen(args, env=cx_env)
 
     # Wait till port 8282 is open. Give up after 60 seconds
     a_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
