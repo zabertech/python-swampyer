@@ -91,7 +91,7 @@ def test_connection():
     client2.shutdown()
 
 
-    
+
 if __name__ == '__main__':
     test_connection()
 
