@@ -195,3 +195,7 @@
 3.0.20240124 - Wed Jan 24 09:27:07 AM PST 2024
 * FIX: When using the `websockets` library, capture and handle the `ConnectionClosedError`
     properly. Handle reconnect attempt properly and don't trigger a tight error loop
+
+3.0.20240511 - Sat May 11 17:04:53 PDT 2024
+* FIX: If `password` for a websocket transport `WAMPClientTicket` is created, the
+    library would enter a loop that didn't give a useful hint what might be happening

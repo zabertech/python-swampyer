@@ -233,8 +233,10 @@ if HAS_ALT_WEBSOCKETS_LIBRARY:
         def recv_data(self, *a, **kw):
             try:
                 return self.socket.recv()
-            except wse.ConnectionClosedError:
-                raise ExWAMPConnectionError()
+            except wse.ConnectionClosedError as ex:
+                if ex.code == 1002:
+                    raise ExFatalError(*ex.args)
+                raise ExWAMPConnectionError(*ex.args)
             except Exception as ex:
                 raise ex
 
@@ -367,6 +369,15 @@ else:
                     data = data.decode('utf-8', 'replace')
                     return self.serializer.loads(data)
 
+                if opcode == websocket.ABNF.OPCODE_CLOSE:
+                    # Try to decode the data as a utf-8 string. Replace any inconvertible characters
+                    # to the unicode `\uFFFD` character
+                    close_code = struct.unpack('!H', data[:2])[0]  
+                    reason_text = data[2:].decode('utf-8')
+                    if close_code == 1002:
+                        raise ExFatalError(reason_text)
+                    raise ExWAMPConnectionError(reason_text)
+
                 if opcode == websocket.ABNF.OPCODE_BINARY:
                     return self.serializer.loads(data)
 
@@ -377,7 +388,7 @@ else:
                     opcode = None
                     logger.debug('Received websocket ping response in %s seconds', round(duration, 3))
                     return
-                
+
                 if opcode not in (websocket.ABNF.OPCODE_TEXT, websocket.ABNF.OPCODE_BINARY):
                     return
             except io.BlockingIOError:
