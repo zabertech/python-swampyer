@@ -549,6 +549,12 @@ class WAMPClient(threading.Thread):
         # Wait till we get a welcome message
         try:
             message = self._welcome_queue.get(block=True,timeout=self.timeout)
+            if isinstance(message, ExFatalError):
+                raise message
+        except ExFatalError as ex:
+            raise ExAbort("Received abort when trying to connect: {}".format(
+                    str(ex)
+                  ))
         except Exception as ex:
             raise ExWelcomeTimeout("Timed out waiting for WELCOME response")
         if message == WAMP_ABORT:
@@ -648,9 +654,13 @@ class WAMPClient(threading.Thread):
             request_id = result.request_id
             if request_id in self._requests_pending:
                 self._requests_pending[request_id].put(result)
-                del self._requests_pending[request_id]
+            del self._requests_pending[request_id]
         except:
-            raise Exception("Response does not have a request id. Do not know who to send data to. Data: {} ".format(result.dump()))
+            raise Exception(
+                        "Response does not have a request id. Do not know who to send data to. Data: {} ".format(
+                                result.dump() if result else "NoneValue"
+                            )
+                        )
 
     def handle_welcome(self, welcome):
         """ Hey cool, we were told we can access the server!
@@ -1009,6 +1019,10 @@ class WAMPClient(threading.Thread):
             except ExShutdown:
                 self._state = STATE_DISCONNECTED
                 return
+            except ExFatalError as ex:
+                if self._state == STATE_AUTHENTICATING:
+                    self._welcome_queue.put(ex)
+                return
             except io.BlockingIOError:
                 consecutive_error_count += 1
                 continue
@@ -1047,7 +1061,10 @@ class WAMPClient(threading.Thread):
                 logger.debug("<RCV: {}".format(data))
                 message = self.receive_message(data)
                 self._stats['messages'] += 1
-                logger.debug("<RCV: {}".format(message.dump()))
+                if not message:
+                    logger.debug("<RCV: ErrorNone")
+                else:
+                    logger.debug("<RCV: {}".format(message.dump()))
                 try:
                     code_name = message.code_name.lower()
                     handler_name = "handle_"+code_name
