@@ -1,6 +1,10 @@
 #!/usr/bin/python
 
-from lib import *
+import logging
+import sys
+import time
+
+from lib import connect_service, DATA_PATH
 
 import swampyer
 
@@ -14,8 +18,13 @@ def hello(event,data):
     return data
 
 def test_connection():
-    client = connect_service('unix:///tmp/test-nexus.socket')
-    client2 = connect_service('unix:///tmp/test-nexus.socket')
+
+    # DISABLED FOR NOW
+
+    unix_socket_path = "unix://" + str((DATA_PATH / 'nexus.socket').resolve())
+
+    client = connect_service(unix_socket_path)
+    client2 = connect_service(unix_socket_path)
 
     # Check if we can register
     reg_result = client.register('com.izaber.wamp.hello', hello, details={"force_reregister": True})

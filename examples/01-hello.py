@@ -16,7 +16,7 @@ logging.basicConfig(stream=sys.stdout, level=1)
 
 try:
     client = swampyer.WAMPClient(
-                    url="ws://localhost:8282/ws",
+                    url="ws://NEXUS_HOST:8282/ws",
                     #url="wss://demo.crossbar.io/ws",
                     #realm="crossbardemo",
                     #auto_reconnect=3

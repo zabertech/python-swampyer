@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 
-from lib import *
+import time
+import logging
+import sys
+
+from lib import connect_service
 
 import swampyer
 

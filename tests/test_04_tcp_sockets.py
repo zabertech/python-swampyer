@@ -1,6 +1,10 @@
 #!/usr/bin/python
 
-from lib import *
+import logging
+import sys
+import time
+
+from lib import connect_service
 
 import swampyer
 
@@ -14,8 +18,8 @@ def hello(event,data):
     return data
 
 def test_connection():
-    client = connect_service('tcpip://localhost:18081')
-    client2 = connect_service('tcpip://localhost:18081')
+    client = connect_service('tcpip://NEXUS_HOST:18081')
+    client2 = connect_service('tcpip://NEXUS_HOST:18081')
 
     # Check if we can register
     reg_result = client.register('com.izaber.wamp.hello', hello, details={"force_reregister": True})

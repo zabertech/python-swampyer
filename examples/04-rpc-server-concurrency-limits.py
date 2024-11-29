@@ -25,7 +25,7 @@ def simple_concurrency():
 
     """
     client = swampyer.WAMPClient(
-                    url="ws://localhost:8282/ws",
+                    url="ws://NEXUS_HOST:8282/ws",
                     uri_base="com.example.wamp.api",
                     concurrency_max=1 # By default all registrations, subscriptions can
                                       # run single threaded (and they get queued) globally
@@ -67,7 +67,7 @@ def targetted_concurrency():
         
     """
     client = swampyer.WAMPClient(
-                    url="ws://localhost:8282/ws",
+                    url="ws://NEXUS_HOST:8282/ws",
                     uri_base="com.example.wamp.api",
                     concurrency_configs={
                       'default': {
@@ -174,7 +174,7 @@ def concurrency_events(*args, **kwargs):
             super(CustomQueue,self).queue_init(event)
 
     client = swampyer.WAMPClient(
-                    url="ws://localhost:8282/ws",
+                    url="ws://NEXUS_HOST:8282/ws",
                     uri_base="com.example.wamp.api",
                     concurrency_configs={
                         'default': {

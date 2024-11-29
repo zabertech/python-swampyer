@@ -12,15 +12,15 @@ import threading
 import traceback
 import socket
 
-from six.moves import queue
-
 from .common import *
 from .messages import *
 from .utils import logger
 from .exceptions import *
-from .transport import *
-from .serializers import *
-from .queues import *
+from .transport import get_transport
+#from .serializers import *
+from .queues import ConcurrencyQueue, ConcurrencyRunner
+
+import queue
 
 class WampInvokeWrapper(ConcurrencyRunner):
     """ Used to put invoke requests on a separate thread
@@ -138,7 +138,7 @@ class WAMPClient(threading.Thread):
 
     def __init__(
                 self,
-                url='ws://localhost:8080',
+                url='ws://NEXUS_HOST:8080',
                 realm='realm1',
                 agent=None,
                 uri_base='',
@@ -1082,6 +1082,11 @@ class WAMPClient(threading.Thread):
                 except AttributeError as ex:
                     self.handle_unknown(message)
 
+            except ExFatalError as ex:
+                if self._state == STATE_AUTHENTICATING:
+                    self._welcome_queue.put(ex)
+                return
+
             except Exception as ex:
                 consecutive_error_count += 1
                 logger.error("ERROR in main loop when receiving: {ex}\n{traceback}".format(
@@ -1124,6 +1129,10 @@ class WAMPClientTicket(WAMPClient):
         """ Executed when the server requests additional
             authentication
         """
+        # We want to make sure that we die if we don't have a password
+        if not isinstance(self.password, str):
+            raise ExFatalError("No password provided for authentication")
+
         # Send challenge response
         self.send_message(AUTHENTICATE(
             signature = self.password,

@@ -1,9 +1,12 @@
 #!/usr/bin/python
 
-from lib import *
+import logging
+import sys
+import re
+from lib import connect_service
 
 import swampyer
-from swampyer.messages import *
+from swampyer.messages import AUTHENTICATE
 
 logging.basicConfig(stream=sys.stdout, level=30)
 # We want to see the protocol information

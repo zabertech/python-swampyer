@@ -1,6 +1,5 @@
 
 import sys
-import six
 import decimal
 import traceback
 import pprint
@@ -141,35 +140,35 @@ class WampMessage(object):
         """
         self[k] = v 
 
-    def __getitem__(self,k):
+    def __getitem__(self, k):
         return getattr(self,k)
 
-    def __setitem__(self,k,v):
+    def __setitem__(self, k, v):
         return setattr(self,k,v)
 
     def __str__(self):
         return self.serializer.dumps(self.package())
 
-    def __eq__(self,other):
+    def __eq__(self, other):
 
         # Compare instance to integer (using integer WAMP message codes)
-        if isinstance(other,six.integer_types):
+        if isinstance(other, int):
             return self.code == other
 
         # Comparing instance to class
         if isinstance(other, type):
-            return type(self) == other
+            return type(self) is other
 
         return self == other
 
-    def __ne__(self,other):
+    def __ne__(self, other):
         # Compare instance to integer (using integer WAMP message codes)
-        if isinstance(other,six.integer_types):
+        if isinstance(other, int):
             return self.code != other
 
         # Comparing instance to class
         if isinstance(other, type):
-            return type(self) != other
+            return type(self) is not other
 
         return self != other
 

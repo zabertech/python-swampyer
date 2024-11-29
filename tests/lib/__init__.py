@@ -1,58 +1,17 @@
 import os
 import pathlib
-import subprocess
-import socket
-import time
 import json
-import sys
 import logging
-import re
+
+import swampyer 
+
+logger = logging.getLogger(__name__)
 
 # Setup for proper pathing for libs and data
 LIB_PATH = pathlib.Path(__file__).resolve().parent
 TEST_PATH = LIB_PATH.parent
 SRC_PATH = TEST_PATH.parent
-DATA_PATH = TEST_PATH / 'data'
-
-sys.path.insert(1, f"{SRC_PATH}/lib")
-
-def launch_nexus():
-    """ This starts a copy of nexus on the local server
-    """
-    cwd = os.getcwd()
-    os.chdir(DATA_PATH)
-
-    cx_env = os.environ
-    current_path = pathlib.Path(__file__).resolve()
-    cx_env['PYTHONPATH'] = str(SRC_PATH/"lib")
-    log_level = cx_env.get('LOG_LEVEL', 'warn')
-    config_fpath = str(DATA_PATH/'izaber.yaml')
-    args = [
-                                "crossbar",
-                                "start",
-                                "--loglevel", log_level,
-                                "--config", config_fpath
-                            ]
-    print("Launching: ", " ".join(args))
-    cx_process =  subprocess.Popen(args, env=cx_env)
-
-    # Wait till port 8282 is open. Give up after 60 seconds
-    a_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    location = ("127.0.0.1", 8282)
-    for i in range(60):
-        time.sleep(1)
-        result_of_check = a_socket.connect_ex(location)
-        if result_of_check == 0:
-            break
-    else:
-        print(f"Port is not open. Giving up")
-        sys.exit(1)
-
-    time.sleep(5)
-    os.chdir(cwd)
-
-    return cx_process
-
+DATA_PATH = pathlib.Path('/volume/nexus-test-data')
 
 def load_nexus_db():
     """ The nexus test db should have a dump of all the roles
@@ -63,16 +22,11 @@ def load_nexus_db():
     snapshot_data = json.load(snapshot_fh)
     return snapshot_data
 
-try:
-    import swampyer 
-except:
-    pass
-
 TICKET_USERNAME = 'user'
 TICKET_PASSWORD = 'pass'
 
 def connect_service(
-          url='ws://localhost:8282/ws',
+          url='ws://NEXUS_HOST:8282/ws',
           serializer_code=None,
           concurrency_max=None,
           concurrency_class=None,
@@ -82,6 +36,10 @@ def connect_service(
           password=None,
           ):
 
+    # Fixup the host
+    target_host = os.environ.get('NEXUS_HOST', 'nexus_swampyer')
+    url = url.replace('NEXUS_HOST', target_host)
+
     snapshot_data = load_nexus_db()
     users = snapshot_data['users']
 
@@ -90,6 +48,8 @@ def connect_service(
         username = 'backend-1'
     if password is None:
         password = users[username]['plaintext_password']
+
+    logging.info(f"Connecting to: {username}@{url}")
 
     serializers = None
     if serializer_code:

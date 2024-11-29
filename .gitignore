@@ -256,3 +256,8 @@ tests/data/key.*
 tests/data/db
 tests/data/snapshot.json
 
+
+# Not recommended for libraries
+pdm.lock
+.pdm-python
+volume/

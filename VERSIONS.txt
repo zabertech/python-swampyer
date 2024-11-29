@@ -199,3 +199,10 @@
 3.0.20240511 - Sat May 11 17:04:53 PDT 2024
 * FIX: If `password` for a websocket transport `WAMPClientTicket` is created, the
     library would enter a loop that didn't give a useful hint what might be happening
+
+3.0.20241129
+* Move from poetry for package management to PDM 
+* Drop support for Python 3.7
+* Added 3.13 to noxfile tests
+* Moved to `./src` layout
+* Move to using `docker-compose.yml` to isolate Nexus

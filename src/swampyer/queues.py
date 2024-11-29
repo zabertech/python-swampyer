@@ -1,7 +1,7 @@
 import time
 import threading
 
-from six.moves import queue
+import queue
 
 from .common import *
 from .exceptions import *
