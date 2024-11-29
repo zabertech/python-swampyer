@@ -82,64 +82,6 @@ class Transport(object):
 
 if HAS_ALT_WEBSOCKETS_LIBRARY:
 
-    class MyConnection(wsc.ClientConnection):
-            def __init__(
-                self,
-                socket: socket.socket,
-                protocol: wsc.ClientProtocol,
-                *,
-                close_timeout: wsc.Optional[float] = 10,
-            ) -> None:
-                self.protocol: wsc.ClientProtocol
-                self.response_rcvd = threading.Event()
-                self.socket = socket
-                self.protocol = protocol
-                self.close_timeout = close_timeout
-
-                # Inject reference to this instance in the protocol's logger.
-                self.protocol.logger = logging.LoggerAdapter(
-                    self.protocol.logger,
-                    {"websocket": self},
-                )
-
-                # Copy attributes from the protocol for convenience.
-                self.id: uuid.UUID = self.protocol.id
-                """Unique identifier of the connection. Useful in logs."""
-                self.logger: LoggerLike = self.protocol.logger
-                """Logger for this connection."""
-                self.debug = self.protocol.debug
-
-                # HTTP handshake request and response.
-                self.request: Optional[Request] = None
-                """Opening handshake request."""
-                self.response: Optional[Response] = None
-                """Opening handshake response."""
-
-                # Mutex serializing interactions with the protocol.
-                self.protocol_mutex = threading.Lock()
-
-                # Assembler turning frames into messages and serializing reads.
-                import websockets.sync.messages
-                self.recv_messages = websockets.sync.messages.Assembler()
-
-                # Whether we are busy sending a fragmented message.
-                self.send_in_progress = False
-
-                # Deadline for the closing handshake.
-                self.close_deadline: Optional[Deadline] = None
-
-                # Mapping of ping IDs to pong waiters, in chronological order.
-                self.pings: Dict[bytes, threading.Event] = {}
-
-                # Receiving events from the socket.
-                self.recv_events_thread = threading.Thread(target=self.recv_events)
-                self.recv_events_thread.daemon = True
-                self.recv_events_thread.start()
-
-                # Exception raised in recv_events, to be chained to ConnectionClosed
-                # in the user thread in order to show why the TCP connection dropped.
-                self.recv_events_exc: Optional[BaseException] = None
-
     @register_transport('ws')
     @register_transport('wss')
     class WebsocketTransport(Transport):
@@ -205,7 +147,7 @@ if HAS_ALT_WEBSOCKETS_LIBRARY:
                                   ssl_context = ssl_context,
                                   subprotocols = subprotocols,
                                   additional_headers = header,
-                                  create_connection = MyConnection,
+                                  create_connection = wsc.ClientConnection,
                                   max_size = 2**32
                               )
                 self.socket.daemon = True
@@ -430,14 +372,14 @@ class RawsocketTransport(Transport):
         #
         # Byte 1: 0x7F
         # 
-				# Byte 2: High nybble: Length, Low nybble: Serializer
+        # Byte 2: High nybble: Length, Low nybble: Serializer
         #       Length: Maximum message length client wishes to receive
         #               0: 2**9 octets
         #               1: 2**10 octets
         #               ...
         #               15: 2**24 octets
         # 
-				#       Serializer: Numeric constants to identify what to use
+        #       Serializer: Numeric constants to identify what to use
         #               1: JSON
         #               2: MessagePack
         #               3 - 15: Reserved
@@ -454,7 +396,7 @@ class RawsocketTransport(Transport):
 
         self.socket.send(client_handshake)
 
-				# Server will then respond with 4 bytes
+                # Server will then respond with 4 bytes
         server_magic = self.socket.recv(1)
         if server_magic != b'\x7f':
             raise ExWAMPConnectionError("Server is not speaking RawSocket. Received '{}' instead!".format(server_magic))
