@@ -186,6 +186,8 @@ if HAS_ALT_WEBSOCKETS_LIBRARY:
             try:
                 data = self.recv_data()
                 return self.serializer.loads(data)
+            except wse.ConnectionClosedOK:
+                raise ExWAMPConnectionError("WAMP is currently disconnected!")
             except ExWAMPConnectionError:
                 raise
             except OSError as ex:
