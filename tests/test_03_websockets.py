@@ -10,9 +10,6 @@ import swampyer
 
 
 logging.basicConfig(stream=sys.stdout, level=30)
-# We want to see the protocol information
-# being exchanged
-#logging.basicConfig(stream=sys.stdout, level=1)
 
 def hello(event,data):
     return data

@@ -6,11 +6,7 @@ import time
 
 from lib import connect_service, load_nexus_db
 
-
-#logging.basicConfig(stream=sys.stdout, level=30)
-# We want to see the protocol information
-# being exchanged
-logging.basicConfig(stream=sys.stdout, level=1)
+logging.basicConfig(stream=sys.stdout, level=30)
 
 def test_connection():
     snapshot_data = load_nexus_db()

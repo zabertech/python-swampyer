@@ -34,6 +34,7 @@ def connect_service(
           timeout=None,
           username=None,
           password=None,
+          auto_reconnect=False,
           ):
 
     # Fixup the host
@@ -62,7 +63,7 @@ def connect_service(
                     uri_base="",
                     timeout=timeout,
                     serializers=serializers,
-                    auto_reconnect=False,
+                    auto_reconnect=auto_reconnect,
                     concurrency_max=concurrency_max,
                     concurrency_class=concurrency_class,
                     concurrency_configs=concurrency_configs

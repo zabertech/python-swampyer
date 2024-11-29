@@ -206,3 +206,6 @@
 * Added 3.13 to noxfile tests
 * Moved to `./src` layout
 * Move to using `docker-compose.yml` to isolate Nexus
+* FIX: Ensure `websockets>11.0` doesn't fail with `Optional` not defined
+* FIX: Fatal properly when password is not provided to `WAMPClientTicket`
+* FIX: Exception error cycling when reconnections used with concurrency queues

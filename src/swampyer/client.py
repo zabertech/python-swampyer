@@ -405,7 +405,6 @@ class WAMPClient(threading.Thread):
         concurrency_queue = klass(queue_name, **concurrency_config)
         return concurrency_queue
 
-
     def concurrency_queue_allowed(self, queue_name):
         """ Returns a true value if the concurrency queue is allowed
         """
@@ -493,8 +492,8 @@ class WAMPClient(threading.Thread):
         to_register = self._registered_calls
         try:
             self._registered_calls = {}
-            for uri, callback, queue_name in to_register.values():
-                self.register(uri, callback, queue_name)
+            for args in to_register.values():
+                self.register(*args)
 
         # If there are any errors, we're just going to restore the cache
         # of previously added registrations so that the next time around
@@ -506,8 +505,8 @@ class WAMPClient(threading.Thread):
         to_subscribe = self._subscriptions
         try:
             self._subscriptions = {}
-            for uri, callback, queue_name in to_subscribe.values():
-                self.subscribe(uri, callback, queue_name)
+            for args in to_subscribe.values():
+                self.subscribe(*args)
 
         # If there are any errors, we're just going to restore the cache
         # of previously added subscriptions so that the next time around
@@ -774,8 +773,9 @@ class WAMPClient(threading.Thread):
                                 ))
         if result == WAMP_SUBSCRIBED:
             if not callback:
-                callback = lambda a: None
-            self._subscriptions[result.subscription_id] = [topic,callback,concurrency_queue]
+                def callback(_):
+                    return None
+            self._subscriptions[result.subscription_id] = [topic, callback, options,  concurrency_queue]
         return result
 
     def unsubscribe(self, subscription_id):
@@ -860,7 +860,6 @@ class WAMPClient(threading.Thread):
         self._last_ping_time = None
         self._last_pong_time = None
         self.handle_disconnect()
-
 
     def shutdown(self):
         """ Request the system to shutdown the main loop and shutdown the system
@@ -951,7 +950,7 @@ class WAMPClient(threading.Thread):
                       procedure=full_uri
                   ))
         if result == WAMP_REGISTERED:
-            self._registered_calls[result.registration_id] = [ uri, callback, concurrency_queue ]
+            self._registered_calls[result.registration_id] = [ uri, callback, details, concurrency_queue ]
         elif result == WAMP_ERROR:
             if result.args:
                 err = result.args
@@ -1049,12 +1048,7 @@ class WAMPClient(threading.Thread):
                     if not data: continue
             except Exception as ex:
                 consecutive_error_count += 1
-                logger.error(
-                    "ERROR in main loop: {ex}\n{traceback}".format(
-                        ex=ex,
-                        traceback=traceback.format_exc(),
-                    )
-                  )
+                logger.error(f"ERROR in main loop: {ex}\n{traceback.format_exc()}")
                 continue
 
             try:
@@ -1064,11 +1058,11 @@ class WAMPClient(threading.Thread):
                 if not message:
                     logger.debug("<RCV: ErrorNone")
                 else:
-                    logger.debug("<RCV: {}".format(message.dump()))
+                    logger.debug(f"<RCV: {message.dump()}")
                 try:
                     code_name = message.code_name.lower()
                     handler_name = "handle_"+code_name
-                    handler_function = getattr(self,handler_name)
+                    handler_function = getattr(self, handler_name)
                     handler_function(message)
 
                     # Reset the counter
