@@ -635,7 +635,7 @@ class WAMPClient(threading.Thread):
         try:
             res = wait_queue.get(block=True,timeout=self.timeout)
         except queue.Empty as ex:
-            raise Exception("Did not receive a response!")
+            raise ExWAMPConnectionError("Did not receive a response!")
         if isinstance(res, GOODBYE):
             raise ExWAMPConnectionError("WAMP is currently disconnected!")
         return res
@@ -661,7 +661,7 @@ class WAMPClient(threading.Thread):
                 self._requests_pending[request_id].put(result)
             del self._requests_pending[request_id]
         except:
-            raise Exception(
+            raise ExWAMPConnectionError(
                         "Response does not have a request id. Do not know who to send data to. Data: {} ".format(
                                 result.dump() if result else "NoneValue"
                             )
