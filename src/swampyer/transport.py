@@ -63,12 +63,24 @@ class Transport(object):
     def send(self, payload):
         raise ExNotImplemented("send is not implemented")
 
-    def send_message(self, message):
+    def send_message(self, message: WampMessage, max_payload_size: int):
         """ Used by the client to send a message object. This will
             allow us to intercept and serialize to the appropriate
             format before sending it on.
         """
         payload = self.serializer.dumps(message.package())
+
+        # We check for max payloads here. We also check on the server
+        # but if we can catch it here, we can provide a richer error
+        # message that can be used to identify the source of the oversized
+        # payload
+        if max_payload_size:
+            payload_length = len(payload)
+            if payload_length > max_payload_size:
+                raise ExMessageOversized(
+                            f"Message {message.debug_snippet()} size {payload_length} exceeds "
+                            f"maximum packet size of {max_payload_size} bytes"
+                        )
         self.send(payload)
 
     def close(self):
@@ -539,7 +551,6 @@ class UnixsocketTransport(RawsocketTransport):
         self.socket_path = socket_path
 
     def create_socket(self):
-        # TODO: Look into SOCK_DGRAM
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         sock.connect(self.socket_path)
         return sock

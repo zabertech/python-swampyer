@@ -35,6 +35,7 @@ def connect_service(
           username=None,
           password=None,
           auto_reconnect=False,
+          max_payload_size=50_000_000,
           ):
 
     # Fixup the host
@@ -66,7 +67,8 @@ def connect_service(
                     auto_reconnect=auto_reconnect,
                     concurrency_max=concurrency_max,
                     concurrency_class=concurrency_class,
-                    concurrency_configs=concurrency_configs
+                    concurrency_configs=concurrency_configs,
+                    max_payload_size=max_payload_size,
                 ).start()
     return client
 

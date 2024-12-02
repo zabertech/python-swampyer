@@ -10,12 +10,12 @@ import swampyer
 
 logging.basicConfig(stream=sys.stdout, level=30)
 
-def hello(event,data):
+def hello(event, data):
     return data
 
 def test_reconnect():
     client = connect_service(auto_reconnect=True)
-    client2 = connect_service()
+    client2 = connect_service(max_payload_size=5_000)
 
     # Check if we can register
     reg_result = client.register(
@@ -30,22 +30,12 @@ def test_reconnect():
     call_result = client2.call('com.izaber.wamp.hello','something')
     assert call_result == 'something'
 
-    # Let's now force a disconnection and see if it allows us to reconnect
-    client.transport.close()
-
-    # Allow it time to reconnect
-    for i in range(40):
-        time.sleep(1)
-
-        # Then let's call the registration again
-        try:
-            call_result = client2.call('com.izaber.wamp.hello','something')
-            assert call_result == 'something'
-            break
-        except swampyer.exceptions.ExInvocationError:
-            pass
-    else:
-        assert False, "Failed to reconnect"
+    # How about with more data?
+    try:
+        call_result = client2.call('com.izaber.wamp.hello','x'*10_000)
+        assert False, "Should have failed"
+    except swampyer.exceptions.ExMessageOversized:
+        pass
 
     # Then shutdown
     client.shutdown()
@@ -53,3 +43,4 @@ def test_reconnect():
 
 if __name__ == '__main__':
     test_reconnect()
+

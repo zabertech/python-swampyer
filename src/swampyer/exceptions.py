@@ -11,6 +11,9 @@ class ExAbort(SwampyException):
 class ExInvocationError(SwampyException):
     pass
 
+class ExMessageOversized(ExInvocationError):
+    pass
+
 class ExMessageCorrupt(SwampyException):
     pass
 

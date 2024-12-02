@@ -210,3 +210,5 @@
 * FIX: Fatal properly when password is not provided to `WAMPClientTicket`
 * FIX: Exception error cycling when reconnections used with concurrency queues
 * FIX: Fix handling when websockets throws Close exception
+* Feature: Default to maximum 50MB for a packet size. Can be 0changed via `max_payload_size`. If exceeded attempt to provide some useful debugging
+* FIX: Amended static delay of 1s for reconnection attempts to 1-4s

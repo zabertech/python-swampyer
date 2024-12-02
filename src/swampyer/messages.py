@@ -123,6 +123,25 @@ class WampMessage(object):
                           )
         return s
 
+    def debug_snippet(self):
+        s = u"\n[{}]: ".format(self.code_name)
+        for field in self._fields:
+            if field.hide_from_debug:
+                s += u'{}: ******\n'.format(field.name)
+            else:
+                field_data = u'{}: {}\n'.format(
+                              field.name,
+                              self[field.name]
+                          )
+                if len(field_data) > 80:
+                    s += field_data[:80] + '...\n'
+                else:
+                    s += field_data
+
+        return s
+
+
+
     def as_str(self):
         return self.serializer.dumps(self.package())
 

@@ -6,6 +6,7 @@ import math
 import time
 import ctypes
 import getpass
+import random
 import pathlib
 import platform
 import threading
@@ -109,6 +110,8 @@ class WAMPClient(threading.Thread):
     heartbeat_timeout = 10
     ping_interval = 3
 
+    max_payload_size: int = None
+
     auto_reconnect = True
 
     session_id = None
@@ -151,6 +154,7 @@ class WAMPClient(threading.Thread):
                 auto_reconnect=1,
                 sslopt=None,
                 sockopt=None,
+                max_payload_size=50_000_000,
                 serializers=None,
                 concurrency_max=None,
                 concurrency_queue_max=None,
@@ -195,6 +199,7 @@ class WAMPClient(threading.Thread):
             heartbeat_timeout = heartbeat_timeout,
             ping_interval = ping_interval,
             serializers = serializers,
+            max_payload_size = max_payload_size,
             concurrency_max = concurrency_max,
             concurrency_queue_max = concurrency_queue_max,
             concurrency_class = concurrency_class,
@@ -341,6 +346,7 @@ class WAMPClient(threading.Thread):
                   'agent','timeout','authmethods', 'authid',
                   'serializers', 'auto_reconnect', 'sslopt', 'sockopt',
                   'loop_timeout', 'heartbeat_timeout', 'ping_interval',
+                  'max_payload_size',
                   'concurrency_class',
                   'concurrency_max',
                   'concurrency_queue_max',
@@ -614,7 +620,7 @@ class WAMPClient(threading.Thread):
         if not self.transport:
             raise ExWAMPConnectionError("WAMP is currently disconnected!")
         logger.debug("SND>: {}".format(message.dump()))
-        self.transport.send_message(message)
+        self.transport.send_message(message, max_payload_size=self.max_payload_size)
 
     def send_and_await_response(self,request):
         """ Used by most things. Sends out a request then awaits a response
@@ -736,7 +742,6 @@ class WAMPClient(threading.Thread):
         self._stats['events'] += 1
         subscription_id = event.subscription_id
         if subscription_id in self._subscriptions:
-            # FIXME: [1] should be a constant
             handler = self._subscriptions[subscription_id][SUBSCRIPTION_CALLBACK]
             queue_name = self._subscriptions[subscription_id][SUBSCRIPTION_QUEUE_NAME]
             runner = WampSubscriptionWrapper(handler,event,self)
@@ -839,7 +844,6 @@ class WAMPClient(threading.Thread):
                     logger.debug("Could not close transport because: {}".format(ex))
             except Exception as ex:
                 logger.debug("Could not send Goodbye message because {}".format(ex))
-                pass # FIXME: Maybe do better handling here
             self.transport = None
 
         # Cleanup the state variables. By settings this
@@ -1043,8 +1047,8 @@ class WAMPClient(threading.Thread):
                     t = threading.Thread(target=reconnect)
                     t.start()
 
-                    # FIXME: need to randomly wait
-                    time.sleep(1)
+                    time.sleep(random.uniform(1, 4))
+
                     if not data: continue
             except Exception as ex:
                 consecutive_error_count += 1
