@@ -59,3 +59,4 @@ RUN echo "Installing PDM" \
     ;
 
 CMD /src/docker/run-test.sh
+

@@ -1,5 +1,7 @@
 # Swampyer
 
+[[_TOC_]]
+
 ## Purpose
 
 Intended as yet another way of interacting with a Web Application Messaging Protocol (WAMP) service, this is intended to be a lighter library for imports than the official autobahn-python.
@@ -25,7 +27,9 @@ Install by using:
 
 ## Development
 
-Development is mostly done from within a docker container since we need to run the code against a slew of python versions to validate the code.
+Development is mostly done from via the Zaber developer environment.
+
+Further, most work is done within a docker container since we need to run the code against a slew of python versions to validate the code.
 
 ### Setup:
 
@@ -41,7 +45,9 @@ docker compose up -d
 
 Nox is used to automate the testing between the various python versions.
 
-Once the environment is up, run from the checkout directory the following command
+By default when the docker compose is started the system will initiate a nox run running the test suite against the range of python versions we support.
+
+However, if you wish to run or develop within the environment, change the `docker-compose.yml` to have a command of `sleep infinity` and the container will remember active for ad-hoc execution of the test suite.
 
 ```bash
 docker compose exec python_swampyer nox

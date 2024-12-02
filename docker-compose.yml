@@ -12,7 +12,7 @@ services:
         condition: service_started
 
   nexus_swampyer:
-    image: zaberit/nexus:3.0.20241025
+    image: zaberit/nexus:3.0.20241128
     environment:
       RUN_MODE: tester
     volumes:
