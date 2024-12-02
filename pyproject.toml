@@ -1,6 +1,6 @@
 [project]
 name = "swampyer"
-version = "3.0.20240511"
+version = "3.0.20241129"
 description = "Simple WAMP library with minimal external dependencies"
 authors = [{name = "Aki Mimoto", email = "aki+swampyer@zaber.com"}]
 requires-python = ">=3.8"

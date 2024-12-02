@@ -1,15 +1,14 @@
 services:
-  src:
-    python_swampyer:
-      context: .
+  python_swampyer:
+    build: .
     # Uncomment this if you wish to "check into" this container
     # and work within an isolated container
     #command: sleep infinity
     volumes:
       - .:/src
-      - ./volume/nexus-test-data:/data
+      - ./volume:/volume
     depends_on:
-      nexus:
+      nexus_swampyer:
         condition: service_started
 
   nexus_swampyer:
