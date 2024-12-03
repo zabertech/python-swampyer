@@ -562,9 +562,9 @@ class TcpipsocketTransport(RawsocketTransport):
     port = None
 
     def init(self, **options):
-        m = re.search(r'tcpip://([\w\.]+):(\d+)',self.url)
+        m = re.search(f'tcpip://(.*?):(\d+)', self.url)
         if not m:
-            raise ExTransportParseError('Require tcpip://host:port syntax for Rawsocket Connection')
+            raise ExTransportParseError(f'Require <{self.url}> tcpip://host:port syntax for Rawsocket Connection')
         self.host = m.group(1)
         self.port = int(m.group(2))
 
@@ -581,9 +581,9 @@ class SecureTcpipsocketTransport(RawsocketTransport):
     port = None
 
     def init(self, **options):
-        m = re.search(r'tcpips://([\w\.]+):(\d+)',self.url)
+        m = re.search(f'tcpips://(.*?):(\d+)', self.url)
         if not m:
-            raise ExTransportParseError('Require tcpips://host:port syntax for Secure Rawsocket Connection')
+            raise ExTransportParseError(f'Require <{self.url}> tcpip://host:port syntax for Rawsocket Connection')
         self.host = m.group(1)
         self.port = int(m.group(2))
 
