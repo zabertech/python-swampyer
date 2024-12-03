@@ -50,19 +50,19 @@ By default when the docker compose is started the system will initiate a nox run
 However, if you wish to run or develop within the environment, change the `docker-compose.yml` to have a command of `sleep infinity` and the container will remember active for ad-hoc execution of the test suite.
 
 ```bash
-docker compose exec python_swampyer nox
+docker compose exec python-swampyer nox
 ```
 
 Execute a specific nox environment:
 
 ```bash
-docker compose exec python_swampyer nox -e <env_name>
+docker compose exec python-swampyer nox -e <env_name>
 ```
 
 Note: a list of available environments can be found with:
 
 ```bash
-docker compose exec python_swampyer nox --list-sessions
+docker compose exec python-swampyer nox --list-sessions
 ```
 
 ### Packaging

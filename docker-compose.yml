@@ -1,5 +1,5 @@
 services:
-  python_swampyer:
+  python-swampyer:
     build: .
     # Uncomment this if you wish to "check into" this container
     # and work within an isolated container
@@ -8,10 +8,10 @@ services:
       - .:/src
       - ./volume:/volume
     depends_on:
-      nexus_swampyer:
+      nexus-swampyer:
         condition: service_started
 
-  nexus_swampyer:
+  nexus-swampyer:
     image: zaberit/nexus:3.0.20241128
     environment:
       RUN_MODE: tester

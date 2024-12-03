@@ -39,7 +39,7 @@ def connect_service(
           ):
 
     # Fixup the host
-    target_host = os.environ.get('NEXUS_HOST', 'nexus_swampyer')
+    target_host = os.environ.get('NEXUS_HOST', 'nexus-swampyer')
     url = url.replace('NEXUS_HOST', target_host)
 
     snapshot_data = load_nexus_db()
