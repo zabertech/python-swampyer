@@ -199,3 +199,17 @@
 3.0.20240511 - Sat May 11 17:04:53 PDT 2024
 * FIX: If `password` for a websocket transport `WAMPClientTicket` is created, the
     library would enter a loop that didn't give a useful hint what might be happening
+
+3.0.20241129
+* Move from poetry for package management to PDM 
+* Drop support for Python 3.7
+* Added 3.13 to noxfile tests
+* Moved to `./src` layout
+* Move to using `docker-compose.yml` to isolate Nexus
+* FIX: Ensure `websockets>11.0` doesn't fail with `Optional` not defined
+* FIX: Fatal properly when password is not provided to `WAMPClientTicket`
+* FIX: Exception error cycling when reconnections used with concurrency queues
+* FIX: Fix handling when websockets throws Close exception
+* Feature: Default to maximum 50MB for a packet size. Can be changed via `max_payload_size`. If exceeded attempt to provide some useful debugging
+* FIX: Amended static delay of 1s for reconnection attempts to 1-4s
+* FIX: Overly strong tcpip transport hostname regex

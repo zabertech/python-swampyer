@@ -6,21 +6,22 @@ import math
 import time
 import ctypes
 import getpass
+import random
 import pathlib
 import platform
 import threading
 import traceback
 import socket
 
-from six.moves import queue
-
 from .common import *
 from .messages import *
 from .utils import logger
 from .exceptions import *
-from .transport import *
-from .serializers import *
-from .queues import *
+from .transport import get_transport
+#from .serializers import *
+from .queues import ConcurrencyQueue, ConcurrencyRunner
+
+import queue
 
 class WampInvokeWrapper(ConcurrencyRunner):
     """ Used to put invoke requests on a separate thread
@@ -109,6 +110,8 @@ class WAMPClient(threading.Thread):
     heartbeat_timeout = 10
     ping_interval = 3
 
+    max_payload_size: int = None
+
     auto_reconnect = True
 
     session_id = None
@@ -138,7 +141,7 @@ class WAMPClient(threading.Thread):
 
     def __init__(
                 self,
-                url='ws://localhost:8080',
+                url='ws://NEXUS_HOST:8080',
                 realm='realm1',
                 agent=None,
                 uri_base='',
@@ -151,6 +154,7 @@ class WAMPClient(threading.Thread):
                 auto_reconnect=1,
                 sslopt=None,
                 sockopt=None,
+                max_payload_size=50_000_000,
                 serializers=None,
                 concurrency_max=None,
                 concurrency_queue_max=None,
@@ -195,6 +199,7 @@ class WAMPClient(threading.Thread):
             heartbeat_timeout = heartbeat_timeout,
             ping_interval = ping_interval,
             serializers = serializers,
+            max_payload_size = max_payload_size,
             concurrency_max = concurrency_max,
             concurrency_queue_max = concurrency_queue_max,
             concurrency_class = concurrency_class,
@@ -341,6 +346,7 @@ class WAMPClient(threading.Thread):
                   'agent','timeout','authmethods', 'authid',
                   'serializers', 'auto_reconnect', 'sslopt', 'sockopt',
                   'loop_timeout', 'heartbeat_timeout', 'ping_interval',
+                  'max_payload_size',
                   'concurrency_class',
                   'concurrency_max',
                   'concurrency_queue_max',
@@ -404,7 +410,6 @@ class WAMPClient(threading.Thread):
         klass = concurrency_config['_class']
         concurrency_queue = klass(queue_name, **concurrency_config)
         return concurrency_queue
-
 
     def concurrency_queue_allowed(self, queue_name):
         """ Returns a true value if the concurrency queue is allowed
@@ -493,8 +498,8 @@ class WAMPClient(threading.Thread):
         to_register = self._registered_calls
         try:
             self._registered_calls = {}
-            for uri, callback, queue_name in to_register.values():
-                self.register(uri, callback, queue_name)
+            for args in to_register.values():
+                self.register(*args)
 
         # If there are any errors, we're just going to restore the cache
         # of previously added registrations so that the next time around
@@ -506,8 +511,8 @@ class WAMPClient(threading.Thread):
         to_subscribe = self._subscriptions
         try:
             self._subscriptions = {}
-            for uri, callback, queue_name in to_subscribe.values():
-                self.subscribe(uri, callback, queue_name)
+            for args in to_subscribe.values():
+                self.subscribe(*args)
 
         # If there are any errors, we're just going to restore the cache
         # of previously added subscriptions so that the next time around
@@ -615,7 +620,7 @@ class WAMPClient(threading.Thread):
         if not self.transport:
             raise ExWAMPConnectionError("WAMP is currently disconnected!")
         logger.debug("SND>: {}".format(message.dump()))
-        self.transport.send_message(message)
+        self.transport.send_message(message, max_payload_size=self.max_payload_size)
 
     def send_and_await_response(self,request):
         """ Used by most things. Sends out a request then awaits a response
@@ -630,7 +635,7 @@ class WAMPClient(threading.Thread):
         try:
             res = wait_queue.get(block=True,timeout=self.timeout)
         except queue.Empty as ex:
-            raise Exception("Did not receive a response!")
+            raise ExWAMPConnectionError("Did not receive a response!")
         if isinstance(res, GOODBYE):
             raise ExWAMPConnectionError("WAMP is currently disconnected!")
         return res
@@ -656,7 +661,7 @@ class WAMPClient(threading.Thread):
                 self._requests_pending[request_id].put(result)
             del self._requests_pending[request_id]
         except:
-            raise Exception(
+            raise ExWAMPConnectionError(
                         "Response does not have a request id. Do not know who to send data to. Data: {} ".format(
                                 result.dump() if result else "NoneValue"
                             )
@@ -737,7 +742,6 @@ class WAMPClient(threading.Thread):
         self._stats['events'] += 1
         subscription_id = event.subscription_id
         if subscription_id in self._subscriptions:
-            # FIXME: [1] should be a constant
             handler = self._subscriptions[subscription_id][SUBSCRIPTION_CALLBACK]
             queue_name = self._subscriptions[subscription_id][SUBSCRIPTION_QUEUE_NAME]
             runner = WampSubscriptionWrapper(handler,event,self)
@@ -774,8 +778,9 @@ class WAMPClient(threading.Thread):
                                 ))
         if result == WAMP_SUBSCRIBED:
             if not callback:
-                callback = lambda a: None
-            self._subscriptions[result.subscription_id] = [topic,callback,concurrency_queue]
+                def callback(_):
+                    return None
+            self._subscriptions[result.subscription_id] = [topic, callback, options,  concurrency_queue]
         return result
 
     def unsubscribe(self, subscription_id):
@@ -839,7 +844,6 @@ class WAMPClient(threading.Thread):
                     logger.debug("Could not close transport because: {}".format(ex))
             except Exception as ex:
                 logger.debug("Could not send Goodbye message because {}".format(ex))
-                pass # FIXME: Maybe do better handling here
             self.transport = None
 
         # Cleanup the state variables. By settings this
@@ -860,7 +864,6 @@ class WAMPClient(threading.Thread):
         self._last_ping_time = None
         self._last_pong_time = None
         self.handle_disconnect()
-
 
     def shutdown(self):
         """ Request the system to shutdown the main loop and shutdown the system
@@ -951,7 +954,7 @@ class WAMPClient(threading.Thread):
                       procedure=full_uri
                   ))
         if result == WAMP_REGISTERED:
-            self._registered_calls[result.registration_id] = [ uri, callback, concurrency_queue ]
+            self._registered_calls[result.registration_id] = [ uri, callback, details, concurrency_queue ]
         elif result == WAMP_ERROR:
             if result.args:
                 err = result.args
@@ -1044,17 +1047,12 @@ class WAMPClient(threading.Thread):
                     t = threading.Thread(target=reconnect)
                     t.start()
 
-                    # FIXME: need to randomly wait
-                    time.sleep(1)
+                    time.sleep(random.uniform(1, 4))
+
                     if not data: continue
             except Exception as ex:
                 consecutive_error_count += 1
-                logger.error(
-                    "ERROR in main loop: {ex}\n{traceback}".format(
-                        ex=ex,
-                        traceback=traceback.format_exc(),
-                    )
-                  )
+                logger.error(f"ERROR in main loop: {ex}\n{traceback.format_exc()}")
                 continue
 
             try:
@@ -1064,11 +1062,11 @@ class WAMPClient(threading.Thread):
                 if not message:
                     logger.debug("<RCV: ErrorNone")
                 else:
-                    logger.debug("<RCV: {}".format(message.dump()))
+                    logger.debug(f"<RCV: {message.dump()}")
                 try:
                     code_name = message.code_name.lower()
                     handler_name = "handle_"+code_name
-                    handler_function = getattr(self,handler_name)
+                    handler_function = getattr(self, handler_name)
                     handler_function(message)
 
                     # Reset the counter
@@ -1081,6 +1079,11 @@ class WAMPClient(threading.Thread):
                 # So: this should not have a "consecutive_error_count += 1"
                 except AttributeError as ex:
                     self.handle_unknown(message)
+
+            except ExFatalError as ex:
+                if self._state == STATE_AUTHENTICATING:
+                    self._welcome_queue.put(ex)
+                return
 
             except Exception as ex:
                 consecutive_error_count += 1
@@ -1124,6 +1127,10 @@ class WAMPClientTicket(WAMPClient):
         """ Executed when the server requests additional
             authentication
         """
+        # We want to make sure that we die if we don't have a password
+        if not isinstance(self.password, str):
+            raise ExFatalError("No password provided for authentication")
+
         # Send challenge response
         self.send_message(AUTHENTICATE(
             signature = self.password,

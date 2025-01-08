@@ -1,7 +1,7 @@
 import time
 import threading
 
-from six.moves import queue
+import queue
 
 from .common import *
 from .exceptions import *
@@ -330,10 +330,8 @@ class ConcurrencyQueue(threading.Thread):
                     try:
                         self._stats['errors'] += 1
                         event.handle_error(ex)
-                    # FIXME: what happens when the exception handler
-                    # throws an exception?
                     except Exception as ex:
-                        logger.warning("Exception handler failed: {}".format(ex))
+                        logger.warning(f"Exception handler failed: {ex}")
 
             # If queue is empty, it's a timeout. We use the
             # opportunity to check if we've been requsested to drop

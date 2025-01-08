@@ -1,10 +1,12 @@
 #!/usr/bin/python
+
+import logging
+import sys
 from datetime import datetime
 
-from lib import *
+from lib import connect_service
 
-import swampyer
-
+logger = logging.getLogger(__name__)
 
 logging.basicConfig(stream=sys.stdout, level=30)
 # We want to see the protocol information
@@ -13,7 +15,7 @@ logging.basicConfig(stream=sys.stdout, level=30)
 
 def test_connection():
 
-    print("Check JSON")
+    logger.info("Check JSON")
     client_json = connect_service(serializer_code='json')
 
     # Try send a string that cannot be encoded by utf8
@@ -30,9 +32,13 @@ def test_connection():
             args=[invalid_data]
         )
     except UnicodeDecodeError as ex:
-        print(f"JSON does not like non-utf8 strings {ex}")
+        # JSON does not like non-utf8 strings
+        # so we expect this to happen
         pass
-    except Exception as ex:
+    except Exception:
+        # If it's not a UnicodeDecodeError, then
+        # something else has happened and we need
+        # to raise it
         raise
 
     # Send a datetime object, ensure it falls back to
@@ -47,12 +53,12 @@ def test_connection():
             },
         args=[obj]
         )
-    except Exception as ex:
+    except Exception:
         raise
 
-    print("Check CBOR")
+    logger.info("Check CBOR")
     client_cbor = connect_service(serializer_code='cbor')
-    result = client_cbor.publish(
+    client_cbor.publish(
         'com.izaber.wamp.pub.hello',
         options={
             'acknowledge': True,
@@ -61,9 +67,9 @@ def test_connection():
         args=[invalid_data]
     )
 
-    print("Check MSGPACK")
+    logger.info("Check MSGPACK")
     client_msgpack = connect_service(serializer_code='msgpack')
-    result = client_msgpack.publish(
+    client_msgpack.publish(
         'com.izaber.wamp.pub.hello',
         options={
             'acknowledge': True,

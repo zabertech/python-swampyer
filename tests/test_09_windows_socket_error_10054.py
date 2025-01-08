@@ -1,6 +1,9 @@
 #!/usr/bin/python
 
-from lib import *
+import logging
+import sys
+
+from lib import connect_service
 import swampyer
 
 
@@ -40,12 +43,11 @@ class WebsocketTransport(swampyer.WebsocketTransport):
             raise swampyer.exceptions.ExWAMPConnectionError("Too many iterations")
         return super(WebsocketTransport,self).next()
 
-
 def hello(event,data):
     return data
 
 def test_exception():
-    client = connect_service(url='myws://localhost:8282/ws')
+    client = connect_service(url='myws://NEXUS_HOST:8282/ws')
 
     # Check if we can register
     reg_result = client.register('com.izaber.wamp.hello', hello, details={"force_reregister": True})
@@ -54,10 +56,14 @@ def test_exception():
 
     client.transport.throw_errors = True
 
+    logging.disable(logging.CRITICAL)
+    logging.getLogger('swampyer').disabled = True
     try:
         client.register('com.izaber.wamp.hello', hello, details={"force_reregister": True}) 
-    except Exception as ex:
+    except Exception:
         pass
+    logging.disable(logging.NOTSET)
+    logging.getLogger('swampyer').disabled = False
 
     # So when we try and read from the socket, if the bug is in effect, the
     # os will generate the 10054 error. That creates an incredibly fast churn

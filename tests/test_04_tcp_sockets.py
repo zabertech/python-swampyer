@@ -1,6 +1,10 @@
 #!/usr/bin/python
 
-from lib import *
+import logging
+import sys
+import time
+
+from lib import connect_service
 
 import swampyer
 
@@ -14,8 +18,8 @@ def hello(event,data):
     return data
 
 def test_connection():
-    client = connect_service('tcpip://localhost:18081')
-    client2 = connect_service('tcpip://localhost:18081')
+    client = connect_service('tcpip://NEXUS_HOST:18081')
+    client2 = connect_service('tcpip://NEXUS_HOST:18081')
 
     # Check if we can register
     reg_result = client.register('com.izaber.wamp.hello', hello, details={"force_reregister": True})
@@ -34,7 +38,7 @@ def test_connection():
     sub_data = {'data':None}
     def sub_capture(event,data):
         sub_data['data'] = data
-        
+
     sub_result = client.subscribe('com.izaber.wamp.pub.hello', sub_capture)
     assert sub_result == swampyer.WAMP_SUBSCRIBED
 
@@ -61,7 +65,7 @@ def test_connection():
     client2.shutdown()
     client.shutdown()
 
-    
+
 if __name__ == '__main__':
     test_connection()
 

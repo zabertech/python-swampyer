@@ -1,14 +1,15 @@
 #!/usr/bin/env python
 
-from lib import *
+import time
+import logging
+import sys
+
+from lib import connect_service
 
 import swampyer
 
 
 logging.basicConfig(stream=sys.stdout, level=30)
-# We want to see the protocol information
-# being exchanged
-#logging.basicConfig(stream=sys.stdout, level=1)
 
 def hello(event,data):
     return data
