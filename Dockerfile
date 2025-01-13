@@ -27,7 +27,6 @@ RUN apt update ; apt install -y software-properties-common ; add-apt-repository 
             python3.11-distutils \
             python3.12 \
             python3.12-dev \
-            python3.12-distutils \
             python3.13 \
             python3.13-dev \
             telnet \
